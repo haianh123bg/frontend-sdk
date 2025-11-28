@@ -20,6 +20,8 @@ export interface ListProps extends React.HTMLAttributes<HTMLUListElement> {
   size?: 'sm' | 'md' | 'lg'
   divider?: boolean
   onItemClick?: (item: ListItem, index: number) => void
+  maxItems?: number
+  emptyState?: React.ReactNode
 }
 
 const sizeClasses = {
@@ -29,7 +31,20 @@ const sizeClasses = {
 }
 
 export const List = React.forwardRef<HTMLUListElement, ListProps>(
-  ({ className, items, align = 'start', size = 'md', divider = true, onItemClick, ...props }, ref) => {
+  (
+    {
+      className,
+      items,
+      align = 'start',
+      size = 'md',
+      divider = true,
+      onItemClick,
+      maxItems,
+      emptyState = 'No items to display',
+      ...props
+    },
+    ref
+  ) => {
     const dispatch = useDispatchAction()
 
     const handleClick = (item: ListItem, index: number) => {
@@ -37,6 +52,11 @@ export const List = React.forwardRef<HTMLUListElement, ListProps>(
       dispatch(EventType.UI_CLICK, { itemId: item.id ?? index }, { meta: { component: 'List' } })
       onItemClick(item, index)
     }
+
+    const visibleItems = React.useMemo(() => {
+      if (!maxItems) return items
+      return items.slice(0, maxItems)
+    }, [items, maxItems])
 
     return (
       <ul
@@ -46,14 +66,17 @@ export const List = React.forwardRef<HTMLUListElement, ListProps>(
         )}
         {...props}
       >
-        {items.map((item, index) => (
+        {visibleItems.length === 0 && (
+          <li className="w-full px-4 py-6 text-center text-sm text-text-muted">{emptyState}</li>
+        )}
+        {visibleItems.map((item, index) => (
           <li
             key={item.id ?? index}
             onClick={() => handleClick(item, index)}
             className={twMerge(
               clsx(
                 'flex w-full items-start gap-3 rounded-2xl px-4 py-3 transition-colors',
-                divider && index !== items.length - 1 && 'border-b border-slate-200',
+                divider && index !== visibleItems.length - 1 && 'border-b border-slate-200',
                 onItemClick && 'cursor-pointer hover:bg-primary-50'
               )
             )}

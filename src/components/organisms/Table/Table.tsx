@@ -22,6 +22,10 @@ export interface TableProps<T> extends React.HTMLAttributes<HTMLTableElement> {
   striped?: boolean
   emptyState?: React.ReactNode
   onRowClick?: (row: T) => void
+  stickyHeader?: boolean
+  pageSize?: number
+  initialPage?: number
+  onPageChange?: (page: number) => void
 }
 
 type SortState<T> = {
@@ -38,10 +42,15 @@ export function Table<T extends Record<string, any>>({
   striped = true,
   emptyState = 'No data available',
   onRowClick,
+  stickyHeader = false,
+  pageSize,
+  initialPage = 1,
+  onPageChange,
   ...props
 }: TableProps<T>) {
   const dispatch = useDispatchAction()
   const [sortState, setSortState] = React.useState<SortState<T>>(null)
+  const [page, setPage] = React.useState(initialPage)
 
   const sortedData = React.useMemo(() => {
     if (!sortState) return data
@@ -56,6 +65,28 @@ export function Table<T extends Record<string, any>>({
       return direction === 'asc' ? -1 : 1
     })
   }, [data, sortState])
+
+  const totalPages = pageSize ? Math.max(1, Math.ceil(sortedData.length / pageSize)) : 1
+
+  React.useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages)
+      onPageChange?.(totalPages)
+    }
+  }, [totalPages, page, onPageChange])
+
+  const paginatedData = React.useMemo(() => {
+    if (!pageSize) return sortedData
+    const start = (page - 1) * pageSize
+    return sortedData.slice(start, start + pageSize)
+  }, [sortedData, page, pageSize])
+
+  const changePage = (next: number) => {
+    if (!pageSize) return
+    const clamped = Math.min(Math.max(1, next), totalPages)
+    setPage(clamped)
+    onPageChange?.(clamped)
+  }
 
   const toggleSort = (column: TableColumn<T>) => {
     if (!column.sortable) return
@@ -91,89 +122,116 @@ export function Table<T extends Record<string, any>>({
   }
 
   return (
-    <div className="w-full overflow-x-auto rounded-2xl bg-surface">
-      <table className={twMerge(clsx('w-full border-collapse text-left', className))} {...props}>
-        <thead>
-          <tr>
-            {columns.map((column) => {
-              const isSorted = sortState?.column.key === column.key
-              let indicator: string | null = null
-              if (column.sortable) {
-                indicator = isSorted
-                  ? sortState?.direction === 'asc'
-                    ? '↑'
-                    : '↓'
-                  : '⇅'
-              }
-              return (
-                <th
-                  key={column.key as string}
-                  onClick={() => toggleSort(column)}
-                  className={twMerge(
-                    clsx(
-                      'cursor-pointer select-none px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary',
-                      column.align === 'center' && 'text-center',
-                      column.align === 'right' && 'text-right'
-                    )
-                  )}
-                  style={{ width: column.width }}
-                >
-                  <span className="inline-flex items-center gap-1">
-                    {column.label}
-                    {indicator && <span className="text-text-muted">{indicator}</span>}
-                  </span>
-                </th>
-              )
-            })}
-          </tr>
-        </thead>
-        <tbody>
-          {sortedData.length === 0 && (
+    <div className="w-full overflow-hidden rounded-2xl bg-surface">
+      <div className="w-full overflow-x-auto">
+        <table className={twMerge(clsx('w-full border-collapse text-left', className))} {...props}>
+          <thead className={twMerge(stickyHeader && 'sticky top-0 z-10 bg-surface')}>
             <tr>
-              <td colSpan={columns.length} className="px-4 py-6 text-center text-sm text-text-muted">
-                {emptyState}
-              </td>
-            </tr>
-          )}
-          {sortedData.map((row, index) => (
-            <tr
-              key={rowKey(row, index)}
-              onClick={() => handleRowClick(row, index)}
-              className={twMerge(
-                clsx(
-                  sizeClasses[size],
-                  'px-4 text-text-primary transition-colors',
-                  striped && index % 2 === 1 && 'bg-surface-alt',
-                  onRowClick && 'cursor-pointer hover:bg-primary-50'
-                )
-              )}
-            >
               {columns.map((column) => {
-                let content: React.ReactNode = null
-                if (column.render) {
-                  content = column.render(row)
-                } else if (typeof column.key === 'string') {
-                  content = row[column.key as keyof T] as React.ReactNode
+                const isSorted = sortState?.column.key === column.key
+                let indicator: string | null = null
+                if (column.sortable) {
+                  indicator = isSorted
+                    ? sortState?.direction === 'asc'
+                      ? '↑'
+                      : '↓'
+                    : '⇅'
                 }
                 return (
-                  <td
+                  <th
                     key={column.key as string}
+                    onClick={() => toggleSort(column)}
                     className={twMerge(
                       clsx(
-                        'px-4 align-middle text-sm text-text-secondary',
+                        'cursor-pointer select-none px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary',
                         column.align === 'center' && 'text-center',
                         column.align === 'right' && 'text-right'
                       )
                     )}
+                    style={{ width: column.width }}
                   >
-                    {content}
-                  </td>
+                    <span className="inline-flex items-center gap-1">
+                      {column.label}
+                      {indicator && <span className="text-text-muted">{indicator}</span>}
+                    </span>
+                  </th>
                 )
               })}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {paginatedData.length === 0 && (
+              <tr>
+                <td colSpan={columns.length} className="px-4 py-6 text-center text-sm text-text-muted">
+                  {emptyState}
+                </td>
+              </tr>
+            )}
+            {paginatedData.map((row, index) => (
+              <tr
+                key={rowKey(row, index)}
+                onClick={() => handleRowClick(row, index)}
+                className={twMerge(
+                  clsx(
+                    sizeClasses[size],
+                    'px-4 text-text-primary transition-colors',
+                    striped && index % 2 === 1 && 'bg-surface-alt',
+                    onRowClick && 'cursor-pointer hover:bg-primary-50'
+                  )
+                )}
+              >
+                {columns.map((column) => {
+                  let content: React.ReactNode = null
+                  if (column.render) {
+                    content = column.render(row)
+                  } else if (typeof column.key === 'string') {
+                    content = row[column.key as keyof T] as React.ReactNode
+                  }
+                  return (
+                    <td
+                      key={column.key as string}
+                      className={twMerge(
+                        clsx(
+                          'px-4 align-middle text-sm text-text-secondary',
+                          column.align === 'center' && 'text-center',
+                          column.align === 'right' && 'text-right'
+                        )
+                      )}
+                    >
+                      {content}
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {pageSize && sortedData.length > pageSize && (
+        <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3 text-xs text-text-muted">
+          <span>
+            Page {page} / {totalPages}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => changePage(page - 1)}
+              className="rounded-full px-3 py-1 text-text-secondary hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={page === 1}
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              onClick={() => changePage(page + 1)}
+              className="rounded-full px-3 py-1 text-text-secondary hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={page === totalPages}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
