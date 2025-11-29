@@ -3,7 +3,7 @@ import * as React from 'react'
 import { clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 
-interface TextProps extends React.HTMLAttributes<HTMLParagraphElement | HTMLHeadingElement> {
+export interface TextProps extends React.HTMLAttributes<HTMLParagraphElement | HTMLHeadingElement> {
   as?: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p' | 'span' | 'label'
   className?: string
 }

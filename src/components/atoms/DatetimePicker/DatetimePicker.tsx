@@ -1,81 +1,66 @@
-// File: src/components/atoms/DatePicker/DatePicker.tsx
+// File: src/components/atoms/DatetimePicker/DatetimePicker.tsx
 import * as React from 'react'
 import { clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import { Scroll } from '../Scroll/Scroll'
-import { IconButton } from '../IconButton/IconButton'
 import { Icon } from '../Icon/Icon'
-import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
+import { IconButton } from '../IconButton/IconButton'
+import { ChevronLeft, ChevronRight, Clock } from 'lucide-react'
+import { DatePickerLocale } from '../DatePicker/DatePicker'
 import { useDispatchAction } from '../../../bus/hooks'
 import { EventType } from '../../../events/types'
 
-export type DatePickerLocale = 'vi-VN' | 'en-US' | 'zh-CN' | 'ja-JP'
-
-export interface DatePickerProps
+export interface DatetimePickerProps
   extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type' | 'onChange' | 'value' | 'defaultValue'> {
   error?: boolean
   fullWidth?: boolean
-  /**
-   * Hiển thị placeholder cho trigger, ví dụ: "dd/mm/yyyy".
-   */
   placeholder?: string
-  value?: string
-  defaultValue?: string
-  onChange?: (date: string) => void
-  /**
-   * Locale để định dạng tên tháng, mặc định là "vi-VN".
-   */
+  value?: string // yyyy-MM-dd HH:mm
+  defaultValue?: string // yyyy-MM-dd HH:mm
+  onChange?: (value: string) => void
   locale?: DatePickerLocale
-  /**
-   * Nhãn cho các thứ trong tuần.
-   */
   weekdayLabels?: [string, string, string, string, string, string, string]
-  /**
-   * Cho phép custom formatter tên tháng.
-   */
   monthLabelFormatter?: (year: number, monthIndex: number) => string
+  hourLabel?: string
+  minuteLabel?: string
 }
 
-const formatDateLabel = (value?: string) => {
-  if (!value) return ''
-  const [year, month, day] = value.split('-').map(Number)
-  if (!year || !month || !day) return value
-  return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`
-}
-
-const parseDate = (value?: string) => {
+const parseDateTime = (value?: string) => {
   if (!value) return undefined
-  const [year, month, day] = value.split('-').map(Number)
+  const [datePart, timePart] = value.split(' ')
+  if (!datePart) return undefined
+  const [year, month, day] = datePart.split('-').map(Number)
   if (!year || !month || !day) return undefined
-  return new Date(year, month - 1, day)
-}
 
-const parseInputToDate = (text: string): Date | undefined => {
-  const value = text.trim()
-  if (!value) return undefined
-
-  // yyyy-mm-dd
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return parseDate(value)
+  let hours = 0
+  let minutes = 0
+  if (timePart) {
+    const [h, m] = timePart.split(':').map(Number)
+    hours = Number.isFinite(h) ? h : 0
+    minutes = Number.isFinite(m) ? m : 0
   }
 
-  // dd/mm/yyyy
-  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(value)) {
-    const [day, month, year] = value.split('/').map(Number)
-    if (!year || !month || !day) return undefined
-    if (month < 1 || month > 12) return undefined
-    if (day < 1 || day > 31) return undefined
-    return new Date(year, month - 1, day)
-  }
-
-  return undefined
+  return new Date(year, month - 1, day, hours, minutes)
 }
 
-const toDateString = (date: Date) => {
+const toDateTimeString = (date: Date) => {
   const y = date.getFullYear()
   const m = String(date.getMonth() + 1).padStart(2, '0')
   const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
+  const hh = String(date.getHours()).padStart(2, '0')
+  const mm = String(date.getMinutes()).padStart(2, '0')
+  return `${y}-${m}-${d} ${hh}:${mm}`
+}
+
+const formatLabel = (value?: string) => {
+  const dt = parseDateTime(value)
+  if (!dt) return ''
+  const day = String(dt.getDate()).padStart(2, '0')
+  const month = String(dt.getMonth() + 1).padStart(2, '0')
+  const year = dt.getFullYear()
+  const hh = String(dt.getHours()).padStart(2, '0')
+  const mm = String(dt.getMinutes()).padStart(2, '0')
+  return `${day}/${month}/${year} ${hh}:${mm}`
 }
 
 const getDaysInMonth = (year: number, monthIndex: number) => {
@@ -83,19 +68,17 @@ const getDaysInMonth = (year: number, monthIndex: number) => {
 }
 
 const getFirstDayOfMonth = (year: number, monthIndex: number) => {
-  // Trả về index ngày đầu tháng với tuần bắt đầu từ Thứ 2 (Mon)
-  // JS getDay(): 0 (Sun) - 6 (Sat) -> chuyển sang 0 (Mon) - 6 (Sun)
   const jsDay = new Date(year, monthIndex, 1).getDay()
   return (jsDay + 6) % 7
 }
 
-export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
+export const DatetimePicker = React.forwardRef<HTMLInputElement, DatetimePickerProps>(
   (
     {
       className,
       error,
       fullWidth = true,
-      placeholder = 'dd/mm/yyyy',
+      placeholder = 'dd/mm/yyyy hh:mm',
       value,
       defaultValue,
       disabled,
@@ -105,6 +88,8 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
       locale = 'vi-VN',
       weekdayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
       monthLabelFormatter,
+      hourLabel = 'Giờ',
+      minuteLabel = 'Phút',
       ...restProps
     },
     ref
@@ -115,21 +100,15 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
     const [internalValue, setInternalValue] = React.useState<string | undefined>(defaultValue)
     const selectedValue = isControlled ? value : internalValue
 
-    const initialDate = parseDate(selectedValue) ?? new Date()
-    const [viewYear, setViewYear] = React.useState(initialDate.getFullYear())
-    const [viewMonth, setViewMonth] = React.useState(initialDate.getMonth()) // 0-11
+    const initial = parseDateTime(selectedValue) ?? new Date()
+    const [viewYear, setViewYear] = React.useState(initial.getFullYear())
+    const [viewMonth, setViewMonth] = React.useState(initial.getMonth())
     const [viewMode, setViewMode] = React.useState<'day' | 'month' | 'year'>('day')
+    const [hours, setHours] = React.useState(initial.getHours())
+    const [minutes, setMinutes] = React.useState(initial.getMinutes())
     const [open, setOpen] = React.useState(false)
 
-    const [inputText, setInputText] = React.useState<string>(
-      selectedValue ? formatDateLabel(selectedValue) : ''
-    )
-
     const containerRef = React.useRef<HTMLDivElement | null>(null)
-
-    React.useEffect(() => {
-      setInputText(selectedValue ? formatDateLabel(selectedValue) : '')
-    }, [selectedValue])
 
     React.useEffect(() => {
       if (!open) return
@@ -143,8 +122,19 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [open])
 
-    const handleSelectDate = (date: Date) => {
-      const next = toDateString(date)
+    React.useEffect(() => {
+      const dt = parseDateTime(selectedValue)
+      if (!dt) return
+      setViewYear(dt.getFullYear())
+      setViewMonth(dt.getMonth())
+      setHours(dt.getHours())
+      setMinutes(dt.getMinutes())
+    }, [selectedValue])
+
+    const handleChange = (nextDate: Date) => {
+      nextDate.setHours(hours)
+      nextDate.setMinutes(minutes)
+      const next = toDateTimeString(nextDate)
 
       if (!isControlled) {
         setInternalValue(next)
@@ -152,63 +142,40 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
 
       dispatch(
         EventType.UI_CHANGE,
-        { date: next },
-        { meta: { component: 'DatePicker' } }
+        { datetime: next },
+        { meta: { component: 'DatetimePicker' } }
       )
 
       onChange?.(next)
-      setOpen(false)
     }
 
     const handleDayClick = (day: number) => {
       if (disabled) return
-      const date = new Date(viewYear, viewMonth, day)
-      handleSelectDate(date)
+      const nextDate = new Date(viewYear, viewMonth, day)
+      handleChange(nextDate)
     }
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleTimeChange = (nextHours: number, nextMinutes: number) => {
       if (disabled) return
+      setHours(nextHours)
+      setMinutes(nextMinutes)
 
-      // Chỉ cho phép nhập số và tự format thành dd/mm/yyyy
-      const raw = e.target.value.replace(/[^0-9]/g, '')
-      let next = raw
+      const base = parseDateTime(selectedValue) ?? new Date(viewYear, viewMonth, 1)
+      base.setHours(nextHours)
+      base.setMinutes(nextMinutes)
+      const next = toDateTimeString(base)
 
-      if (next.length > 2) {
-        next = `${next.slice(0, 2)}/${next.slice(2)}`
-      }
-      if (next.length > 5) {
-        next = `${next.slice(0, 5)}/${next.slice(5, 9)}`
-      }
-
-      // Giới hạn tối đa dd/mm/yyyy (10 ký tự)
-      if (next.length > 10) {
-        next = next.slice(0, 10)
+      if (!isControlled) {
+        setInternalValue(next)
       }
 
-      setInputText(next)
-    }
+      dispatch(
+        EventType.UI_CHANGE,
+        { datetime: next },
+        { meta: { component: 'DatetimePicker' } }
+      )
 
-    const commitInputValue = () => {
-      if (disabled) return
-      const parsed = parseInputToDate(inputText)
-      if (parsed) {
-        handleSelectDate(parsed)
-      } else {
-        // Revert to current selected value if parse fails
-        setInputText(selectedValue ? formatDateLabel(selectedValue) : '')
-      }
-    }
-
-    const handleInputBlur = () => {
-      commitInputValue()
-    }
-
-    const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Enter') {
-        e.preventDefault()
-        commitInputValue()
-        setOpen(false)
-      }
+      onChange?.(next)
     }
 
     const goToPrevious = () => {
@@ -245,7 +212,6 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
 
     const daysInMonth = getDaysInMonth(viewYear, viewMonth)
     const firstDay = getFirstDayOfMonth(viewYear, viewMonth)
-    const selectedDate = parseDate(selectedValue)
 
     const weeks: (number | null)[][] = []
     let currentDay = 1 - firstDay
@@ -261,6 +227,8 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
       }
       weeks.push(week)
     }
+
+    const selectedDate = parseDateTime(selectedValue)
 
     const defaultMonthFormatter = React.useMemo(
       () => new Intl.DateTimeFormat(locale, { month: 'long' }),
@@ -279,14 +247,21 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
 
     const monthLabel = formatMonthLabel(viewYear, viewMonth)
 
-    const monthNames = Array.from({ length: 12 }, (_, index) => ({
-      index,
-      label: formatMonthLabel(viewYear, index),
-    }))
+    const monthNames = React.useMemo(
+      () =>
+        Array.from({ length: 12 }, (_, index) => ({
+          index,
+          label: formatMonthLabel(viewYear, index),
+        })),
+      [formatMonthLabel, viewYear]
+    )
 
     const yearStart = viewYear - 50
     const yearEnd = viewYear + 49
     const yearOptions = Array.from({ length: yearEnd - yearStart + 1 }, (_, i) => yearStart + i)
+
+    const hourOptions = Array.from({ length: 24 }, (_, i) => i)
+    const minuteOptions = Array.from({ length: 60 }, (_, i) => i) // 0-59 phút
 
     return (
       <div
@@ -300,7 +275,6 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
           )
         )}
       >
-        {/* Hidden input to keep form compatibility */}
         <input
           ref={ref}
           type="hidden"
@@ -310,56 +284,34 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
           {...restProps}
         />
 
-        <div
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => !disabled && setOpen((prev) => !prev)}
           className={twMerge(
             clsx(
               'flex h-10 w-full items-center justify-between rounded-xl bg-surface-alt px-3 py-2',
               'text-left',
-              'focus-within:outline-none focus-within:ring-2 focus-within:ring-primary-100',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100',
               'transition-all duration-200',
-              !disabled && 'cursor-text',
-              disabled && 'cursor-not-allowed',
-              error && 'bg-red-50 text-red-700 focus-within:ring-red-100'
+              !disabled && 'cursor-pointer',
+              error && 'bg-red-50 text-red-700 focus-visible:ring-red-100'
             )
           )}
-          onClick={() => {
-            if (disabled) return
-            setOpen(true)
-          }}
         >
-          <input
-            type="text"
-            disabled={disabled}
-            value={inputText}
-            onChange={handleInputChange}
-            onBlur={handleInputBlur}
-            onKeyDown={handleInputKeyDown}
-            placeholder={placeholder}
-            className={twMerge(
-              clsx(
-                'flex-1 bg-transparent text-sm',
-                'outline-none border-none',
-                !selectedValue && 'text-text-muted'
-              )
-            )}
-          />
-          <Icon
-          icon={Calendar}
-          variant="muted"
-          size="sm"
-          className={clsx('ml-2 transition-transform', open && 'rotate-180')}
-        />
-        </div>
+          <span className={clsx('truncate', !selectedValue && 'text-text-muted')}>
+            {selectedValue ? formatLabel(selectedValue) : placeholder}
+          </span>
+          <Icon icon={Clock} variant="muted" size="sm" className="ml-2" />
+        </button>
 
         {open && !disabled && (
           <div
             className={twMerge(
               clsx(
-                // Mobile: full-width bottom sheet
                 'fixed inset-x-0 bottom-0 z-50 w-full rounded-t-2xl bg-surface shadow-lg outline-none',
                 'max-h-[80vh] overflow-hidden',
-                // Desktop: compact dropdown under input
-                'sm:absolute sm:bottom-auto sm:left-0 sm:right-auto sm:mt-1 sm:rounded-xl sm:min-w-[260px] sm:max-w-sm'
+                'sm:absolute sm:bottom-auto sm:left-0 sm:right-auto sm:mt-1 sm:rounded-xl sm:min-w-[280px] sm:max-w-md'
               )
             )}
           >
@@ -388,8 +340,8 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
               {viewMode === 'day' && (
                 <>
                   <div className="grid grid-cols-7 justify-items-center">
-                    {weekdayLabels.map((d) => (
-                      <div key={d} className="h-8 w-8 flex items-center justify-center text-xs font-semibold text-text-muted">
+                    {weekdayLabels.map((d, index) => (
+                      <div key={`${d}-${index}`} className="h-8 w-8 flex items-center justify-center text-xs font-semibold text-text-muted">
                         {d}
                       </div>
                     ))}
@@ -485,6 +437,66 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
                   </div>
                 </Scroll>
               )}
+
+              <div className="mt-3 flex flex-col gap-2 pt-1 text-xs text-text">
+                <div className="flex items-center gap-2">
+                  <span className="shrink-0 text-[11px] text-text-muted">{hourLabel}</span>
+                  <Scroll
+                    autoHide
+                    direction="horizontal"
+                    className="flex-1 overflow-y-hidden rounded-full bg-surface-alt px-2 py-2 text-center text-xs"
+                  >
+                    <div className="flex gap-1">
+                      {hourOptions.map((h) => (
+                        <button
+                          key={h}
+                          type="button"
+                          onClick={() => handleTimeChange(h, minutes)}
+                          className={twMerge(
+                            clsx(
+                              'inline-flex h-8 aspect-square items-center justify-center rounded-full text-[11px] transition-colors',
+                              h === hours
+                                ? 'bg-primary-500 text-white'
+                                : 'hover:bg-slate-50 text-text'
+                            )
+                          )}
+                        >
+                          {String(h).padStart(2, '0')}
+                        </button>
+                      ))}
+                    </div>
+                  </Scroll>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="shrink-0 text-[11px] text-text-muted">{minuteLabel}</span>
+                  <Scroll
+                    autoHide
+                    direction="horizontal"
+                    className="flex-1 overflow-y-hidden rounded-full bg-surface-alt px-2 py-2 text-center text-xs"
+                  >
+                    <div className="flex gap-1">
+                      {minuteOptions.map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => handleTimeChange(hours, m)}
+                          className={twMerge(
+                            clsx(
+                              'inline-flex h-8 aspect-square items-center justify-center rounded-full text-[11px] transition-colors',
+                              m === minutes
+                                ? 'bg-primary-500 text-white'
+                                : 'hover:bg-slate-50 text-text'
+                            )
+                          )}
+                        >
+                          {String(m).padStart(2, '0')}
+                        </button>
+                      ))}
+                    </div>
+                  </Scroll>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -493,4 +505,4 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
   }
 )
 
-DatePicker.displayName = 'DatePicker'
+DatetimePicker.displayName = 'DatetimePicker'

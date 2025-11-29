@@ -6,17 +6,18 @@ import { twMerge } from 'tailwind-merge'
 export interface ProgressProps extends React.HTMLAttributes<HTMLDivElement> {
   value?: number
   max?: number
-  variant?: 'primary' | 'secondary' | 'success' | 'danger'
+  variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'composite'
   showLabel?: boolean
   type?: 'linear' | 'circular'
   size?: 'sm' | 'md' | 'lg'
 }
 
 const variantClasses = {
-  primary: 'text-primary-500 bg-primary-100',
-  secondary: 'text-slate-500 bg-slate-200',
-  success: 'text-green-500 bg-green-100',
-  danger: 'text-red-500 bg-red-100',
+  primary: { stroke: 'text-primary-500', bg: 'bg-primary-100', fill: 'bg-primary-500' },
+  secondary: { stroke: 'text-slate-500', bg: 'bg-slate-200', fill: 'bg-slate-500' },
+  success: { stroke: 'text-green-500', bg: 'bg-green-100', fill: 'bg-green-500' },
+  danger: { stroke: 'text-red-500', bg: 'bg-red-100', fill: 'bg-red-500' },
+  composite: { stroke: 'text-slate-500', bg: 'bg-slate-100', fill: 'bg-transparent' },
 }
 
 const circularSizes = {
@@ -32,6 +33,30 @@ export const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
   ) => {
     const clamped = Math.min(Math.max(value, 0), max)
     const percentage = Math.round((clamped / max) * 100)
+    const getCompositeLabelColor = () => {
+      if (percentage <= 25) return 'text-red-600'
+      if (percentage <= 50) return 'text-amber-500'
+      if (percentage <= 75) return 'text-lime-600'
+      return 'text-emerald-600'
+    }
+    const getCompositeStrokeColor = () => {
+      if (percentage <= 25) return 'text-red-600'
+      if (percentage <= 50) return 'text-amber-500'
+      if (percentage <= 75) return 'text-lime-600'
+      return 'text-emerald-600'
+    }
+    const getCompositeGradient = () => {
+      if (percentage <= 25) {
+        return 'linear-gradient(90deg, #dc2626 0%, #f97316 100%)'
+      }
+      if (percentage <= 50) {
+        return 'linear-gradient(90deg, #dc2626 0%, #f97316 55%, #facc15 100%)'
+      }
+      if (percentage <= 75) {
+        return 'linear-gradient(90deg, #dc2626 0%, #f97316 45%, #facc15 80%, #a3e635 100%)'
+      }
+      return 'linear-gradient(90deg, #dc2626 0%, #f97316 35%, #facc15 65%, #a3e635 90%, #22c55e 100%)'
+    }
 
     if (type === 'circular') {
       const dimension = circularSizes[size]
@@ -57,7 +82,7 @@ export const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
               r={radius}
               fill="transparent"
               stroke="currentColor"
-              className={variantClasses[variant].split(' ')[0]}
+              className={variant === 'composite' ? getCompositeStrokeColor() : variantClasses[variant].stroke}
               strokeWidth="4"
               strokeDasharray={circumference}
               strokeDashoffset={strokeDashoffset}
@@ -71,15 +96,22 @@ export const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
 
     return (
       <div ref={ref} className={twMerge(clsx('flex flex-col gap-1', className))} {...props}>
-        <div className={twMerge(clsx('h-2 w-full rounded-full bg-slate-200'))}>
+        <div className={twMerge(clsx('h-2 w-full rounded-full', variantClasses[variant].bg))}>
           <div
             className={twMerge(
-              clsx('h-full rounded-full transition-all', variantClasses[variant].split(' ')[0])
+              clsx('h-full rounded-full transition-all', variant === 'composite' ? '' : variantClasses[variant].fill)
             )}
-            style={{ width: `${percentage}%` }}
+            style={{
+              width: `${percentage}%`,
+              backgroundImage: variant === 'composite' ? getCompositeGradient() : undefined,
+            }}
           />
         </div>
-        {showLabel && <span className="text-xs font-medium text-text-secondary">{percentage}%</span>}
+        {showLabel && (
+          <span className={clsx('text-xs font-medium', variant === 'composite' ? getCompositeLabelColor() : 'text-text-secondary')}>
+            {percentage}%
+          </span>
+        )}
       </div>
     )
   }

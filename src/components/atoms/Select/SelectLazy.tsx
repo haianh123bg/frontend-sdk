@@ -1,32 +1,43 @@
-// File: src/components/atoms/Select/Select.tsx
 import * as React from 'react'
 import { clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import { useDispatchAction } from '../../../bus/hooks'
 import { EventType } from '../../../events/types'
+import { SelectOption, SelectProps as BaseSelectProps } from './Select'
 
-export interface SelectOption {
-  label: string
-  value: string
-  disabled?: boolean
+export interface FetchOptionsParams {
+  page: number
+  pageSize: number
 }
 
-export interface SelectProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onChange'> {
-  options: SelectOption[]
-  placeholder?: string
-  error?: boolean
-  fullWidth?: boolean
-  disabled?: boolean
-  value?: string
-  defaultValue?: string
-  onChange?: (value: string) => void
+export interface FetchOptionsResult {
+  data: SelectOption[]
+  hasMore: boolean
 }
 
-export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
+export interface SelectLazyProps extends Omit<BaseSelectProps, 'options'> {
+  /**
+   * Function to fetch options asynchronously.
+   */
+  fetchOptions: (params: FetchOptionsParams) => Promise<FetchOptionsResult>
+  /**
+   * Number of items to load per page.
+   * @default 20
+   */
+  pageSize?: number
+  /**
+   * Debounce time for search (if search is implemented later) or rapid open actions
+   * @default 300
+   */
+  debounceMs?: number
+}
+
+export const SelectLazy = React.forwardRef<HTMLDivElement, SelectLazyProps>(
   (
     {
       className,
-      options,
+      fetchOptions,
+      pageSize = 20,
       placeholder,
       error,
       fullWidth = true,
@@ -42,11 +53,55 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
     const [open, setOpen] = React.useState(false)
     const [internalValue, setInternalValue] = React.useState(defaultValue)
     const containerRef = React.useRef<HTMLDivElement | null>(null)
+    const listRef = React.useRef<HTMLUListElement | null>(null)
+
+    // Lazy Loading State
+    const [options, setOptions] = React.useState<SelectOption[]>([])
+    const [loading, setLoading] = React.useState(false)
+    const [page, setPage] = React.useState(1)
+    const [hasMore, setHasMore] = React.useState(true)
+    const [initialized, setInitialized] = React.useState(false)
 
     React.useImperativeHandle(ref, () => containerRef.current as HTMLDivElement)
 
     const selectedValue = value ?? internalValue
+    // Note: If the selected value is not in the currently loaded options, 
+    // the label might not show correctly unless we preload it or handle it separately.
     const selectedOption = options.find((o) => o.value === selectedValue)
+
+    const loadOptions = React.useCallback(
+      async (pageToLoad: number, isNew: boolean = false) => {
+        if (loading) return
+        setLoading(true)
+        try {
+          const res = await fetchOptions({ page: pageToLoad, pageSize })
+          setOptions((prev) => (isNew ? res.data : [...prev, ...res.data]))
+          setHasMore(res.hasMore)
+          setPage(pageToLoad)
+        } catch (err) {
+          console.error('Failed to load options', err)
+        } finally {
+          setLoading(false)
+          setInitialized(true)
+        }
+      },
+      [fetchOptions, pageSize, loading]
+    )
+
+    // Initial load when opened
+    React.useEffect(() => {
+      if (open && !initialized && !loading) {
+        loadOptions(1, true)
+      }
+    }, [open, initialized, loadOptions, loading])
+
+    const handleScroll = (e: React.UIEvent<HTMLUListElement>) => {
+      const { scrollTop, scrollHeight, clientHeight } = e.currentTarget
+      // Threshold of 20px from bottom
+      if (scrollHeight - scrollTop <= clientHeight + 20 && hasMore && !loading) {
+        loadOptions(page + 1)
+      }
+    }
 
     const handleSelect = (next: string) => {
       if (disabled) return
@@ -56,7 +111,7 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
       dispatch(
         EventType.UI_CHANGE,
         { value: next },
-        { meta: { component: 'Select' } }
+        { meta: { component: 'SelectLazy' } }
       )
       onChange?.(next)
       setOpen(false)
@@ -102,21 +157,35 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
           )}
         >
           <span className={clsx('truncate', !selectedOption && 'text-text-muted')}>
-            {selectedOption?.label ?? placeholder ?? 'Select...'}
+            {selectedOption?.label ?? (selectedValue || placeholder || 'Select...')}
           </span>
-          <span className={clsx('ml-2 text-xs text-text-muted transition-transform', open && 'rotate-180')}>
+          <span
+            className={clsx(
+              'ml-2 text-xs text-text-muted transition-transform',
+              open && 'rotate-180'
+            )}
+          >
             ▼
           </span>
         </button>
 
         {open && !disabled && (
-          <div className="absolute z-50 mt-1 w-full rounded-xl bg-surface shadow-lg outline-none">
-            <ul className="max-h-60 overflow-auto py-1 text-sm">
+          <div className="absolute z-50 mt-1 w-full rounded-xl bg-surface shadow-lg outline-none overflow-hidden">
+            <ul
+              ref={listRef}
+              onScroll={handleScroll}
+              className="max-h-60 overflow-auto py-1 text-sm scrollbar-thin scrollbar-thumb-gray-200"
+            >
               {placeholder && (
-                <li className="px-3 py-2 text-text-muted">
-                  {placeholder}
+                <li className="px-3 py-2 text-text-muted opacity-50">{placeholder}</li>
+              )}
+              
+              {options.length === 0 && !loading && (
+                <li className="px-3 py-2 text-center text-text-muted">
+                  No options
                 </li>
               )}
+
               {options.map((option) => {
                 const isSelected = option.value === selectedValue
                 return (
@@ -141,6 +210,12 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
                   </li>
                 )
               })}
+              
+              {loading && (
+                <li className="px-3 py-2 text-center text-xs text-text-muted animate-pulse">
+                  Loading...
+                </li>
+              )}
             </ul>
           </div>
         )}
@@ -149,4 +224,4 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
   }
 )
 
-Select.displayName = 'Select'
+SelectLazy.displayName = 'SelectLazy'
