@@ -44,6 +44,7 @@ export * from './components/atoms/Code/Code'
 // Feedback Components
 export * from './components/molecules/Modal/Modal'
 export * from './components/molecules/Tooltip/Tooltip'
+export * from './components/molecules/Popover/Popover'
 export * from './components/molecules/Toast/Toast'
 
 // Navigation Components
