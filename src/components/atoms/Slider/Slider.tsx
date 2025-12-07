@@ -12,12 +12,25 @@ export interface SliderProps extends Omit<React.InputHTMLAttributes<HTMLInputEle
   value?: number
   defaultValue?: number
   showValue?: boolean
+  variant?: 'default' | 'success' | 'error' | 'warning' | 'info'
   onChange?: (value: number) => void
 }
 
 export const Slider = React.forwardRef<HTMLInputElement, SliderProps>(
   (
-    { className, min = 0, max = 100, step = 1, value, defaultValue = min, showValue = true, onChange, ...props },
+    {
+      className,
+      min = 0,
+      max = 100,
+      step = 1,
+      value,
+      defaultValue = min,
+      showValue = true,
+      variant = 'default',
+      onChange,
+      style,
+      ...props
+    },
     ref
   ) => {
     const dispatch = useDispatchAction()
@@ -36,6 +49,28 @@ export const Slider = React.forwardRef<HTMLInputElement, SliderProps>(
 
     const percentage = ((currentValue - min) / (max - min)) * 100
 
+    const variantTrackClasses: Record<
+      NonNullable<SliderProps['variant']>,
+      string
+    > = {
+      default: 'bg-primary-500',
+      success: 'bg-emerald-500',
+      error: 'bg-rose-500',
+      warning: 'bg-amber-400',
+      info: 'bg-sky-500',
+    }
+
+    const variantThumbStyles: Record<
+      NonNullable<SliderProps['variant']>,
+      React.CSSProperties
+    > = {
+      default: {},
+      success: { accentColor: '#10b981' },
+      error: { accentColor: '#f43f5e' },
+      warning: { accentColor: '#fbbf24' },
+      info: { accentColor: '#0ea5e9' },
+    }
+
     return (
       <div className={twMerge(clsx('flex w-full flex-col gap-2', className))}>
         {showValue && (
@@ -48,7 +83,10 @@ export const Slider = React.forwardRef<HTMLInputElement, SliderProps>(
         <div className="relative flex items-center">
           <div className="pointer-events-none absolute h-1 w-full rounded-full bg-slate-200" />
           <div
-            className="pointer-events-none absolute h-1 rounded-full bg-primary-500"
+            className={clsx(
+              'pointer-events-none absolute h-1 rounded-full',
+              variantTrackClasses[variant]
+            )}
             style={{ width: `${percentage}%` }}
           />
           <input
@@ -60,6 +98,7 @@ export const Slider = React.forwardRef<HTMLInputElement, SliderProps>(
             value={currentValue}
             onChange={handleChange}
             className="relative w-full appearance-none bg-transparent"
+            style={{ ...style, ...variantThumbStyles[variant] }}
             {...props}
           />
         </div>

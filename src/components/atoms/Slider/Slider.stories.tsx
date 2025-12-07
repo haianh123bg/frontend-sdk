@@ -10,10 +10,15 @@ const meta = {
     max: 100,
     step: 1,
     showValue: true,
+    variant: 'default',
   },
   argTypes: {
     showValue: { control: 'boolean' },
     disabled: { control: 'boolean' },
+    variant: {
+      control: 'select',
+      options: ['default', 'success', 'error', 'warning', 'info'],
+    },
   },
 } satisfies Meta<typeof Slider>
 
@@ -44,4 +49,19 @@ export const Disabled: Story = {
     disabled: true,
     defaultValue: 30,
   },
+}
+
+export const Variants: Story = {
+  args: {
+    defaultValue: 50,
+  },
+  render: (args) => (
+    <div className="flex w-full flex-col gap-6 p-8">
+      <Slider {...args} variant="default" />
+      <Slider {...args} variant="success" />
+      <Slider {...args} variant="error" />
+      <Slider {...args} variant="warning" />
+      <Slider {...args} variant="info" />
+    </div>
+  ),
 }

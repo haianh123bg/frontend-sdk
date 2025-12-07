@@ -2,8 +2,10 @@
 import * as React from 'react'
 import { clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useDispatchAction } from '../../../bus/hooks'
 import { EventType } from '../../../events/types'
+import { IconButton } from '../../atoms/IconButton/IconButton'
 
 export interface PaginationProps {
   currentPage: number
@@ -11,6 +13,7 @@ export interface PaginationProps {
   onPageChange: (page: number) => void
   siblingCount?: number
   className?: string
+  variant?: 'default' | 'icon'
 }
 
 export const Pagination: React.FC<PaginationProps> = ({
@@ -19,6 +22,7 @@ export const Pagination: React.FC<PaginationProps> = ({
   onPageChange,
   siblingCount = 1,
   className,
+  variant = 'default',
 }) => {
   const dispatch = useDispatchAction()
 
@@ -63,6 +67,29 @@ export const Pagination: React.FC<PaginationProps> = ({
 
     return range(1, totalPages)
   }, [currentPage, totalPages, siblingCount])
+
+  if (variant === 'icon') {
+    return (
+      <nav className={twMerge(clsx('flex items-center gap-1', className))}>
+        <IconButton
+          icon={ChevronLeft}
+          size="xs"
+          variant="muted"
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className={clsx(currentPage === 1 && 'cursor-not-allowed opacity-40')}
+        />
+        <IconButton
+          icon={ChevronRight}
+          size="xs"
+          variant="muted"
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className={clsx(currentPage === totalPages && 'cursor-not-allowed opacity-40')}
+        />
+      </nav>
+    )
+  }
 
   return (
     <nav className={twMerge(clsx('flex items-center gap-1', className))}>

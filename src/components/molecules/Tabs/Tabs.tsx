@@ -17,9 +17,10 @@ export interface TabsProps {
   defaultTab?: string
   onChange?: (tabId: string) => void
   className?: string
+  noBorder?: boolean
 }
 
-export const Tabs: React.FC<TabsProps> = ({ tabs, defaultTab, onChange, className }) => {
+export const Tabs: React.FC<TabsProps> = ({ tabs, defaultTab, onChange, className, noBorder }) => {
   const dispatch = useDispatchAction()
   const [activeTab, setActiveTab] = React.useState(defaultTab || tabs[0]?.id)
 
@@ -33,7 +34,11 @@ export const Tabs: React.FC<TabsProps> = ({ tabs, defaultTab, onChange, classNam
 
   return (
     <div className={twMerge(clsx('w-full', className))}>
-      <div className="flex gap-1 border-b border-slate-200">
+      <div
+        className={twMerge(
+          clsx('flex gap-1', !noBorder && 'border-b border-slate-200')
+        )}
+      >
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -44,7 +49,9 @@ export const Tabs: React.FC<TabsProps> = ({ tabs, defaultTab, onChange, classNam
                 'px-4 py-2 text-sm font-medium transition-all rounded-t-lg',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
                 activeTab === tab.id
-                  ? 'bg-surface text-primary-500 border-b-2 border-primary-500'
+                  ? noBorder
+                    ? 'bg-surface text-primary-500'
+                    : 'bg-surface text-primary-500 border-b-2 border-primary-500'
                   : 'text-text-secondary hover:text-text-primary hover:bg-slate-50',
                 tab.disabled && 'opacity-50 cursor-not-allowed'
               )

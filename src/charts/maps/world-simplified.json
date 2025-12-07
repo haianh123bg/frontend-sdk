@@ -1,0 +1,107 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "North America",
+      "properties": { "name": "North America" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-170, 10],
+            [-50, 10],
+            [-50, 72],
+            [-170, 72],
+            [-170, 10]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "South America",
+      "properties": { "name": "South America" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-82, -55],
+            [-34, -55],
+            [-34, 12],
+            [-82, 12],
+            [-82, -55]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "Europe",
+      "properties": { "name": "Europe" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-10, 35],
+            [30, 35],
+            [30, 72],
+            [-10, 72],
+            [-10, 35]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "Africa",
+      "properties": { "name": "Africa" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-20, -35],
+            [50, -35],
+            [50, 34],
+            [-20, 34],
+            [-20, -35]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "Asia",
+      "properties": { "name": "Asia" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [30, 5],
+            [150, 5],
+            [150, 75],
+            [30, 75],
+            [30, 5]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "Oceania",
+      "properties": { "name": "Oceania" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [110, -50],
+            [180, -50],
+            [180, 0],
+            [110, 0],
+            [110, -50]
+          ]
+        ]
+      }
+    }
+  ]
+}

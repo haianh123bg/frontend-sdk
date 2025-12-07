@@ -2,8 +2,22 @@
 import * as React from 'react'
 import { clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import {
+  flexRender,
+  getCoreRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+  type ColumnDef,
+  type OnChangeFn,
+  type PaginationState,
+  type SortingState,
+  type VisibilityState,
+} from '@tanstack/react-table'
 import { useDispatchAction } from '../../../bus/hooks'
 import { EventType } from '../../../events/types'
+import { Pagination } from '../../molecules/Pagination/Pagination'
+import { Select } from '../../atoms/Select/Select'
 
 export interface TableColumn<T> {
   key: keyof T | string
@@ -20,18 +34,27 @@ export interface TableProps<T> extends React.HTMLAttributes<HTMLTableElement> {
   rowKey: (row: T, index: number) => string
   size?: 'sm' | 'md' | 'lg'
   striped?: boolean
+  rowStyle?: 'striped' | 'plain' | 'bordered'
   emptyState?: React.ReactNode
   onRowClick?: (row: T) => void
   stickyHeader?: boolean
+  showSortIndicator?: boolean
   pageSize?: number
+  pageSizeOptions?: number[]
   initialPage?: number
   onPageChange?: (page: number) => void
+  /**
+   * Optional controlled sorting state. If provided, Table will be controlled from the outside
+   * and will call onSortingChange when header clicks change sorting.
+   */
+  sorting?: SortingState
+  onSortingChange?: (sorting: SortingState) => void
+  /**
+   * Optional controlled column visibility. Useful when building external UI to toggle columns.
+   * Table itself hiện tại không render UI toggle cột, mà chỉ áp dụng visibility state.
+   */
+  columnVisibility?: VisibilityState
 }
-
-type SortState<T> = {
-  column: TableColumn<T>
-  direction: 'asc' | 'desc'
-} | null
 
 export function Table<T extends Record<string, any>>({
   className,
@@ -40,75 +63,133 @@ export function Table<T extends Record<string, any>>({
   rowKey,
   size = 'md',
   striped = true,
+  rowStyle,
   emptyState = 'No data available',
   onRowClick,
   stickyHeader = false,
+  showSortIndicator = true,
   pageSize,
+  pageSizeOptions,
   initialPage = 1,
   onPageChange,
+  sorting: sortingProp,
+  onSortingChange,
+  columnVisibility: columnVisibilityProp,
   ...props
 }: TableProps<T>) {
   const dispatch = useDispatchAction()
-  const [sortState, setSortState] = React.useState<SortState<T>>(null)
-  const [page, setPage] = React.useState(initialPage)
+  const [sortingState, setSortingState] = React.useState<SortingState>([])
 
-  const sortedData = React.useMemo(() => {
-    if (!sortState) return data
-    const { column, direction } = sortState
-    return [...data].sort((a, b) => {
-      const aValue = typeof column.key === 'string' ? a[column.key as keyof T] : undefined
-      const bValue = typeof column.key === 'string' ? b[column.key as keyof T] : undefined
-      if (aValue === bValue) return 0
-      if (aValue == null) return direction === 'asc' ? -1 : 1
-      if (bValue == null) return direction === 'asc' ? 1 : -1
-      if (aValue > bValue) return direction === 'asc' ? 1 : -1
-      return direction === 'asc' ? -1 : 1
-    })
-  }, [data, sortState])
+  const effectiveRowStyle: NonNullable<TableProps<T>['rowStyle']> = rowStyle ?? (striped ? 'striped' : 'plain')
 
-  const totalPages = pageSize ? Math.max(1, Math.ceil(sortedData.length / pageSize)) : 1
+  const resolvedPageSizeOptions = (pageSizeOptions && pageSizeOptions.length
+    ? pageSizeOptions
+    : [10, 20, 50, 100])
 
-  React.useEffect(() => {
-    if (page > totalPages) {
-      setPage(totalPages)
-      onPageChange?.(totalPages)
-    }
-  }, [totalPages, page, onPageChange])
+  const sorting = sortingProp ?? sortingState
+  const [columnVisibilityState] = React.useState<VisibilityState>({})
+  const columnVisibility = columnVisibilityProp ?? columnVisibilityState
 
-  const paginatedData = React.useMemo(() => {
-    if (!pageSize) return sortedData
-    const start = (page - 1) * pageSize
-    return sortedData.slice(start, start + pageSize)
-  }, [sortedData, page, pageSize])
+  const initialPageIndex = Math.max(0, initialPage - 1)
+  const initialPageSize = pageSize ?? resolvedPageSizeOptions[0]
 
-  const changePage = (next: number) => {
-    if (!pageSize) return
-    const clamped = Math.min(Math.max(1, next), totalPages)
-    setPage(clamped)
-    onPageChange?.(clamped)
+  const [pagination, setPagination] = React.useState<PaginationState>({
+    pageIndex: initialPageIndex,
+    pageSize: initialPageSize,
+  })
+
+  type TableColumnMeta = {
+    align?: 'left' | 'center' | 'right'
+    width?: string | number
   }
 
-  const toggleSort = (column: TableColumn<T>) => {
-    if (!column.sortable) return
-    setSortState((prev) => {
-      if (!prev || prev.column.key !== column.key) {
-        dispatch(EventType.UI_CLICK, { column: column.key, direction: 'asc' }, { meta: { component: 'Table' } })
-        return { column, direction: 'asc' }
-      }
-      const nextDirection = prev.direction === 'asc' ? 'desc' : null
-      if (!nextDirection) {
-        dispatch(EventType.UI_CLICK, { column: column.key, direction: 'none' }, { meta: { component: 'Table' } })
-        return null
-      }
-      dispatch(EventType.UI_CLICK, { column: column.key, direction: nextDirection }, { meta: { component: 'Table' } })
-      return { column, direction: nextDirection }
-    })
+  const columnDefs = React.useMemo<ColumnDef<T>[]>(
+    () =>
+      columns.map((column) => {
+        const id = typeof column.key === 'string' ? (column.key as string) : String(column.key)
+
+        return {
+          id,
+          accessorKey: typeof column.key === 'string' ? (column.key as string) : undefined,
+          header: column.label,
+          cell: (info) => {
+            const originalRow = info.row.original as T
+            if (column.render) {
+              return column.render(originalRow)
+            }
+            const value = info.getValue() as React.ReactNode
+            return value ?? null
+          },
+          enableSorting: column.sortable,
+          meta: {
+            align: column.align,
+            width: column.width,
+          } satisfies TableColumnMeta,
+        } satisfies ColumnDef<T>
+      }),
+    [columns]
+  )
+
+  const handleSortingChange: OnChangeFn<SortingState> = (updater) => {
+    const nextSorting =
+      typeof updater === 'function' ? (updater as (old: SortingState) => SortingState)(sorting) : updater
+
+    if (!sortingProp) {
+      setSortingState(nextSorting)
+    }
+    onSortingChange?.(nextSorting)
+
+    const primary = nextSorting[0]
+    const direction = primary ? (primary.desc ? 'desc' : 'asc') : 'none'
+
+    if (primary) {
+      dispatch(
+        EventType.UI_CLICK,
+        { column: primary.id, direction },
+        { meta: { component: 'Table' } }
+      )
+    } else {
+      dispatch(
+        EventType.UI_CLICK,
+        { column: 'all', direction },
+        { meta: { component: 'Table' } }
+      )
+    }
+  }
+
+  const table = useReactTable({
+    data,
+    columns: columnDefs,
+    state: {
+      sorting,
+      columnVisibility,
+      pagination,
+    },
+    onSortingChange: handleSortingChange,
+    onPaginationChange: setPagination,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+  })
+
+  const rowModel = table.getRowModel()
+  const totalPages = table.getPageCount() || 1
+  const currentPage = pagination.pageIndex + 1
+
+  React.useEffect(() => {
+    onPageChange?.(currentPage)
+  }, [currentPage, onPageChange])
+
+  const changePage = (next: number) => {
+    if (!Number.isFinite(next)) return
+    const clamped = Math.min(Math.max(1, next), totalPages)
+    table.setPageIndex(clamped - 1)
   }
 
   const sizeClasses = {
-    sm: 'text-xs py-2',
-    md: 'text-sm py-3',
-    lg: 'text-base py-4',
+    sm: 'text-xs',
+    md: 'text-sm',
+    lg: 'text-base',
   }
 
   const handleRowClick = (row: T, index: number) => {
@@ -121,84 +202,93 @@ export function Table<T extends Record<string, any>>({
     onRowClick(row)
   }
 
+  const pageSizeState = pagination.pageSize
+  const showPagination = !!pageSizeState
+
+  const handlePageSizeChange = (value: string) => {
+    const next = Number(value)
+    if (!Number.isFinite(next) || next <= 0) return
+    table.setPageSize(next)
+    table.setPageIndex(0)
+  }
+
   return (
-    <div className="w-full overflow-hidden rounded-2xl bg-surface">
+    <div className="w-full rounded-2xl bg-surface">
       <div className="w-full overflow-x-auto">
         <table className={twMerge(clsx('w-full border-collapse text-left', className))} {...props}>
           <thead className={twMerge(stickyHeader && 'sticky top-0 z-10 bg-surface')}>
-            <tr>
-              {columns.map((column) => {
-                const isSorted = sortState?.column.key === column.key
-                let indicator: string | null = null
-                if (column.sortable) {
-                  indicator = isSorted
-                    ? sortState?.direction === 'asc'
-                      ? '↑'
-                      : '↓'
-                    : '⇅'
-                }
-                return (
-                  <th
-                    key={column.key as string}
-                    onClick={() => toggleSort(column)}
-                    className={twMerge(
-                      clsx(
-                        'cursor-pointer select-none px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary',
-                        column.align === 'center' && 'text-center',
-                        column.align === 'right' && 'text-right'
-                      )
-                    )}
-                    style={{ width: column.width }}
-                  >
-                    <span className="inline-flex items-center gap-1">
-                      {column.label}
-                      {indicator && <span className="text-text-muted">{indicator}</span>}
-                    </span>
-                  </th>
-                )
-              })}
-            </tr>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map((header) => {
+                  if (header.isPlaceholder) return null
+                  const meta = header.column.columnDef.meta as TableColumnMeta | undefined
+                  const align = meta?.align
+                  const isSorted = header.column.getIsSorted()
+                  let indicator: string | null = null
+                  if (header.column.getCanSort() && showSortIndicator) {
+                    indicator = !isSorted ? '⇅' : isSorted === 'asc' ? '↑' : '↓'
+                  }
+                  return (
+                    <th
+                      key={header.id}
+                      onClick={header.column.getCanSort() ? header.column.getToggleSortingHandler() : undefined}
+                      className={twMerge(
+                        clsx(
+                          'cursor-pointer select-none px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary',
+                          align === 'center' && 'text-center',
+                          align === 'right' && 'text-right'
+                        )
+                      )}
+                      style={{ width: meta?.width }}
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        {indicator && <span className="text-text-muted">{indicator}</span>}
+                      </span>
+                    </th>
+                  )
+                })}
+              </tr>
+            ))}
           </thead>
           <tbody>
-            {paginatedData.length === 0 && (
+            {rowModel.rows.length === 0 && (
               <tr>
                 <td colSpan={columns.length} className="px-4 py-6 text-center text-sm text-text-muted">
                   {emptyState}
                 </td>
               </tr>
             )}
-            {paginatedData.map((row, index) => (
+            {rowModel.rows.map((row) => (
               <tr
-                key={rowKey(row, index)}
-                onClick={() => handleRowClick(row, index)}
+                key={rowKey(row.original as T, row.index)}
+                onClick={() => handleRowClick(row.original as T, row.index)}
                 className={twMerge(
                   clsx(
                     sizeClasses[size],
                     'px-4 text-text-primary transition-colors',
-                    striped && index % 2 === 1 && 'bg-surface-alt',
+                    effectiveRowStyle === 'striped' && row.index % 2 === 1 && 'bg-surface-alt',
+                    effectiveRowStyle === 'plain' && 'bg-surface',
+                    effectiveRowStyle === 'bordered' && 'border-b border-slate-100',
                     onRowClick && 'cursor-pointer hover:bg-primary-50'
                   )
                 )}
               >
-                {columns.map((column) => {
-                  let content: React.ReactNode = null
-                  if (column.render) {
-                    content = column.render(row)
-                  } else if (typeof column.key === 'string') {
-                    content = row[column.key as keyof T] as React.ReactNode
-                  }
+                {row.getVisibleCells().map((cell) => {
+                  const meta = cell.column.columnDef.meta as TableColumnMeta | undefined
+                  const align = meta?.align
                   return (
                     <td
-                      key={column.key as string}
+                      key={cell.id}
                       className={twMerge(
                         clsx(
-                          'px-4 align-middle text-sm text-text-secondary',
-                          column.align === 'center' && 'text-center',
-                          column.align === 'right' && 'text-right'
+                          'px-4 py-3 align-middle text-sm text-text-secondary',
+                          align === 'center' && 'text-center',
+                          align === 'right' && 'text-right'
                         )
                       )}
                     >
-                      {content}
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   )
                 })}
@@ -207,29 +297,34 @@ export function Table<T extends Record<string, any>>({
           </tbody>
         </table>
       </div>
-      {pageSize && sortedData.length > pageSize && (
+      {showPagination && (
         <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3 text-xs text-text-muted">
-          <span>
-            Page {page} / {totalPages}
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => changePage(page - 1)}
-              className="rounded-full px-3 py-1 text-text-secondary hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
-              disabled={page === 1}
-            >
-              Previous
-            </button>
-            <button
-              type="button"
-              onClick={() => changePage(page + 1)}
-              className="rounded-full px-3 py-1 text-text-secondary hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
-              disabled={page === totalPages}
-            >
-              Next
-            </button>
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
+              <span>Số hàng trên trang</span>
+              <Select
+                className="h-8 w-[72px] text-xs"
+                fullWidth={false}
+                compact
+                hideCaret
+                options={resolvedPageSizeOptions.map((n) => ({
+                  label: String(n),
+                  value: String(n),
+                }))}
+                value={String(pageSizeState)}
+                onChange={handlePageSizeChange}
+              />
+            </div>
+            <span>
+              Trang <span className="font-medium text-text-primary">{currentPage}</span>
+            </span>
           </div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={changePage}
+            variant="icon"
+          />
         </div>
       )}
     </div>

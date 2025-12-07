@@ -29,13 +29,12 @@ export const SplitPane = React.forwardRef<HTMLDivElement, SplitPaneProps>(
   ) => {
     const dispatch = useDispatchAction()
     const containerRef = React.useRef<HTMLDivElement | null>(null)
-    const handleRef = React.useRef<HTMLDivElement | null>(null)
     const [ratio, setRatio] = React.useState(initialRatio)
 
     React.useImperativeHandle(ref, () => containerRef.current as HTMLDivElement)
 
-    const handlePointerMove = React.useCallback(
-      (event: PointerEvent) => {
+    const handleMouseMove = React.useCallback(
+      (event: MouseEvent) => {
         const container = containerRef.current
         if (!container) return
         const rect = container.getBoundingClientRect()
@@ -65,16 +64,14 @@ export const SplitPane = React.forwardRef<HTMLDivElement, SplitPaneProps>(
     )
 
     const stopDragging = React.useCallback(() => {
-      window.removeEventListener('pointermove', handlePointerMove)
-      window.removeEventListener('pointerup', stopDragging)
-      handleRef.current?.releasePointerCapture(0)
-    }, [handlePointerMove])
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', stopDragging)
+    }, [handleMouseMove])
 
-    const startDragging = (event: React.PointerEvent<HTMLDivElement>) => {
+    const startDragging = (event: React.MouseEvent<HTMLDivElement>) => {
       event.preventDefault()
-      window.addEventListener('pointermove', handlePointerMove)
-      window.addEventListener('pointerup', stopDragging)
-      event.currentTarget.setPointerCapture(event.pointerId)
+      window.addEventListener('mousemove', handleMouseMove)
+      window.addEventListener('mouseup', stopDragging)
     }
 
     const [primary, secondary] = React.Children.toArray(children)
@@ -101,10 +98,9 @@ export const SplitPane = React.forwardRef<HTMLDivElement, SplitPaneProps>(
           {primary}
         </div>
         <div
-          ref={handleRef}
           role="separator"
           aria-orientation={direction}
-          onPointerDown={startDragging}
+          onMouseDown={startDragging}
           className={clsx(
             'flex items-center justify-center transition-colors',
             isHorizontal

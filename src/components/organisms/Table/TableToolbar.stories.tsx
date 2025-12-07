@@ -1,9 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import { useState } from 'react'
-import { Button } from '../../atoms/Button/Button'
-import { Select } from '../../atoms/Select/Select'
+import type { VisibilityState } from '@tanstack/react-table'
+import { IconButton } from '../../atoms/IconButton/IconButton'
+import { Download, UserPlus } from 'lucide-react'
 import { Table } from './Table'
-import { TableToolbar } from './TableToolbar'
+import { TableToolbar, type ToolbarFilterOption } from './TableToolbar'
+import { ActiveFilters, type ActiveFilterChip } from './ActiveFilters'
 
 interface UserRow {
   id: string
@@ -33,6 +35,7 @@ export const WithTable: Story = {
     const [search, setSearch] = useState('')
     const [statusFilter, setStatusFilter] = useState<string | undefined>()
     const [selectedIds, setSelectedIds] = useState<string[]>([])
+    const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
 
     const filtered = data.filter((row) => {
       const matchesSearch =
@@ -49,6 +52,28 @@ export const WithTable: Story = {
       { key: 'status', label: 'Status' },
     ] as const
 
+    const visibilityItems = columns.map((col) => {
+      const id = col.key as string
+      const visible = columnVisibility[id] !== false
+      return { id, label: col.label, visible }
+    })
+
+    const filterOptions: ToolbarFilterOption[] = [
+      { label: 'All statuses', value: '' },
+      { label: 'Active', value: 'active' },
+      { label: 'Invited', value: 'invited' },
+      { label: 'Disabled', value: 'disabled' },
+    ]
+
+    const activeFilters: ActiveFilterChip[] = [
+      ...(search
+        ? [{ id: 'search', label: 'Search', value: search } as ActiveFilterChip]
+        : []),
+      ...(statusFilter
+        ? [{ id: 'status', label: 'Status', value: statusFilter } as ActiveFilterChip]
+        : []),
+    ]
+
     return (
       <div className="space-y-2">
         <TableToolbar
@@ -57,34 +82,40 @@ export const WithTable: Story = {
           searchPlaceholder="Search users"
           selectedCount={selectedIds.length}
           onClearSelection={() => setSelectedIds([])}
-          filters={
-            <Select
-              className="h-9 w-[140px]"
-              placeholder="All statuses"
-              value={statusFilter}
-              onChange={(value) => setStatusFilter(value || undefined)}
-              options={[
-                { label: 'All statuses', value: '' },
-                { label: 'Active', value: 'active' },
-                { label: 'Invited', value: 'invited' },
-                { label: 'Disabled', value: 'disabled' },
-              ]}
-            />
-          }
+          filterOptions={filterOptions}
+          filterValue={statusFilter || ''}
+          onFilterChange={(value) => setStatusFilter(value || undefined)}
           actions={
-            <>
-              <Button size="sm" variant="secondary">
-                Export
-              </Button>
-              <Button size="sm">Add user</Button>
-            </>
+            <div className="flex items-center gap-2">
+              <IconButton icon={Download} size="sm" />
+              <IconButton icon={UserPlus} size="sm" />
+            </div>
           }
+          columnVisibilityItems={visibilityItems}
+          onColumnVisibilityChange={(id, visible) => {
+            setColumnVisibility((prev) => ({
+              ...prev,
+              [id]: visible,
+            }))
+          }}
+        />
+        <ActiveFilters
+          filters={activeFilters}
+          onRemoveFilter={(id) => {
+            if (id === 'search') setSearch('')
+            if (id === 'status') setStatusFilter(undefined)
+          }}
+          onClearAll={() => {
+            setSearch('')
+            setStatusFilter(undefined)
+          }}
         />
         <Table
           columns={columns as any}
           data={filtered}
           rowKey={(row) => row.id}
           pageSize={5}
+          columnVisibility={columnVisibility}
         />
       </div>
     )

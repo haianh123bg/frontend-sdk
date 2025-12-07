@@ -19,6 +19,13 @@ export interface SelectProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 
   disabled?: boolean
   value?: string
   defaultValue?: string
+  compact?: boolean
+  hideCaret?: boolean
+  /**
+   * Khi bật autoOpen, dropdown sẽ tự mở khi component render và không bị disabled.
+   * Hữu ích cho các trường hợp muốn hiển thị menu ngay sau khi người dùng trigger từ bên ngoài.
+   */
+  autoOpen?: boolean
   onChange?: (value: string) => void
 }
 
@@ -33,6 +40,9 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
       disabled = false,
       value,
       defaultValue = '',
+      compact = false,
+      hideCaret = false,
+      autoOpen = false,
       onChange,
       ...props
     },
@@ -74,6 +84,12 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [open])
 
+    React.useEffect(() => {
+      if (autoOpen && !open && !disabled) {
+        setOpen(true)
+      }
+    }, [autoOpen, open, disabled])
+
     return (
       <div
         ref={containerRef}
@@ -92,21 +108,29 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
           onClick={() => !disabled && setOpen((prev) => !prev)}
           className={twMerge(
             clsx(
-              'flex h-10 w-full items-center justify-between rounded-xl bg-surface-alt px-3 py-2',
+              'flex w-full items-center justify-between rounded-xl bg-surface-alt px-3 py-2',
               'text-left',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100',
               'transition-all duration-200',
               !disabled && 'cursor-pointer',
-              error && 'bg-red-50 text-red-700 focus-visible:ring-red-100'
+              error && 'bg-red-50 text-red-700 focus-visible:ring-red-100',
+              compact && 'h-8 rounded-lg px-2 text-xs'
             )
           )}
         >
           <span className={clsx('truncate', !selectedOption && 'text-text-muted')}>
             {selectedOption?.label ?? placeholder ?? 'Select...'}
           </span>
-          <span className={clsx('ml-2 text-xs text-text-muted transition-transform', open && 'rotate-180')}>
-            ▼
-          </span>
+          {!hideCaret && (
+            <span
+              className={clsx(
+                'ml-2 text-xs text-text-muted transition-transform',
+                open && 'rotate-180'
+              )}
+            >
+              ▼
+            </span>
+          )}
         </button>
 
         {open && !disabled && (
@@ -131,12 +155,11 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
                           'transition-colors',
                           !option.disabled && 'hover:bg-slate-50 cursor-pointer',
                           option.disabled && 'cursor-not-allowed text-text-muted',
-                          isSelected && 'bg-primary-50 text-primary-700'
+                          isSelected && 'bg-primary-50'
                         )
                       )}
                     >
                       <span className="truncate">{option.label}</span>
-                      {isSelected && <span className="ml-2 text-xs text-primary-600">●</span>}
                     </button>
                   </li>
                 )
