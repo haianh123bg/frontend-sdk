@@ -5,12 +5,14 @@
 ### 1.1. `Form` (organism)
 - Dựa trên `react-hook-form`.
 - Props chính:
+  - `schema?: ZodSchema<T>`: nếu truyền, `Form` sẽ dùng `zodResolver(schema)` để validate (cần deps `zod`, `@hookform/resolvers`).
   - `methods?: UseFormReturn<T>`: cho phép truyền instance bên ngoài vào.
   - `onSubmit?: SubmitHandler<T>`: callback khi submit hợp lệ.
   - `onInvalid?: SubmitErrorHandler<T>`: callback khi submit lỗi.
   - `options?: UseFormProps<T>`: cấu hình cho `useForm` khi `methods` không được truyền.
 - Hành vi:
   - Tự tạo `formMethods` nếu không có `methods` từ ngoài.
+  - Nếu có `schema`, khởi tạo `useForm` với `resolver: zodResolver(schema)`.
   - Dùng `FormProvider` để children có thể `useFormContext`.
   - Khi submit hợp lệ:
     - Dispatch `EventType.FORM_SUBMIT` với `{ formData }` (flags.persist = true).
@@ -24,6 +26,13 @@
   - Hiển thị `label`, `required *`, `children`, `error` text.
 - Chưa gắn chặt với `react-hook-form` hay Zod.
 - Có thể tái sử dụng cho mọi control (Input, Select, Textarea, ...).
+- Khi dùng `FormField` trong form thực tế, Input không cần tự nhận prop `error` vì wrapper đã hiển thị lỗi. Ví dụ sử dụng tối giản:
+
+```tsx
+<FormField name="fieldKey" label={t('marketing:customField.form.fieldKey')} required>
+  <Input fullWidth maxLength={50} />
+</FormField>
+```
 
 ### 1.3. `Input` (atom)
 - Wrapper quanh `<input />` với style + telemetry:
@@ -72,33 +81,30 @@
 
 ### 3.2. Liên kết `FormField` + `react-hook-form`
 
-1. Tạo component `ControlledFormField` (hoặc `FormFieldController`):
-   - Vị trí: `src/components/molecules/FormField/FormFieldController.tsx`.
-   - Sử dụng `useFormContext` + `Controller` (nếu cần) hoặc trực tiếp `register`.
+1. Cách đơn giản ưu tiên: dùng `FormField` trực tiếp (không cần controller) vì `FormField` tự hiển thị lỗi từ context:
+
+```tsx
+<FormField
+  name="displayName"
+  label={t('marketing:customField.form.displayName')}
+  required
+>
+  <Input
+    fullWidth
+    placeholder={t('marketing:customField.form.displayNamePlaceholder')}
+    maxLength={100}
+  />
+</FormField>
+```
+
+2. Tuỳ chọn nâng cao (nếu cần `Controller` cho custom control): tạo `FormFieldController` ở `src/components/molecules/FormField/FormFieldController.tsx`.
+   - Sử dụng `useFormContext` + `Controller` hoặc `register`.
    - Props:
      - `name: Path<T>` (từ `react-hook-form`).
      - `label`, `required`, `helperText`.
-     - `render: (field, fieldState) => ReactNode` hoặc `children` dạng render-prop.
+     - `render` hoặc `children` (có thể chỉ cần `{ field }`, `error` vẫn do `FormField` hiển thị).
    - Trách nhiệm:
-     - Tự lấy `error` từ `formState.errors[name]` và truyền vào `FormField` (`error={message}`).
-
-2. Mẫu sử dụng:
-
-```tsx
-<FormFieldController
-  name="email"
-  label="Email"
-  required
-  render={({ field, fieldState }) => (
-    <Input
-      {...field}
-      type="email"
-      error={!!fieldState.error}
-      placeholder="jane@company.com"
-    />
-  )}
-/>
-```
+     - Lấy `error` từ `formState.errors[name]` và truyền vào `FormField` (`error={message}`) nếu cần override.
 
 ### 3.3. Handling error từ Zod & API
 
@@ -125,6 +131,58 @@ interface ApiErrorResponse {
      - Nếu API trả lỗi `fieldErrors`, dùng `methods.setError(field, { type: 'server', message })`.
      - Nếu chỉ có `message` chung, hiển thị ở `Form` level (banner/alert).
 
+3. Hook gợi ý để map lỗi API vào form (tham khảo ý tưởng kiểu `useFormErrors`):
+
+```ts
+// src/forms/hooks/useFormErrors.ts (đề xuất)
+import { useCallback } from 'react'
+import type { FieldValues, Path, UseFormReturn } from 'react-hook-form'
+
+export interface ApiFieldError {
+  field: string
+  message: string
+}
+export interface ApiErrorResponse {
+  message?: string
+  fieldErrors?: ApiFieldError[]
+}
+
+export function useFormErrors<TFieldValues extends FieldValues>(methods: UseFormReturn<TFieldValues>) {
+  const setFormErrors = useCallback(
+    (apiError: ApiErrorResponse) => {
+      if (apiError.fieldErrors) {
+        apiError.fieldErrors.forEach((err) => {
+          methods.setError(err.field as Path<TFieldValues>, { type: 'server', message: err.message })
+        })
+      }
+      return apiError.message || null // trả về lỗi chung để hiển thị banner nếu cần
+    },
+    [methods]
+  )
+
+  return { setFormErrors }
+}
+```
+
+Cách dùng trong submit:
+
+```ts
+const methods = useForm<YourValues>({ ... })
+const { setFormErrors } = useFormErrors(methods)
+const [formError, setFormError] = useState<string | null>(null)
+
+const onSubmit = async (values: YourValues) => {
+  setFormError(null)
+  try {
+    await apiCall(values)
+  } catch (err) {
+    const apiError = parseApiError(err) // map về ApiErrorResponse
+    const commonMessage = setFormErrors(apiError)
+    if (commonMessage) setFormError(commonMessage)
+  }
+}
+```
+
 3. Thêm `FormErrorBanner` optional:
    - Vị trí: `src/components/molecules/FormErrorBanner/FormErrorBanner.tsx`.
    - Props: `message?: string`.
@@ -132,21 +190,26 @@ interface ApiErrorResponse {
 
 ### 3.4. Luồng submit & trạng thái loading
 
-1. Chuẩn hoá pattern submit async:
+1. Chuẩn hoá pattern submit async (dùng hook để tránh `useState` thủ công). Gợi ý hook `useFormSubmit` (chưa implement) trả về `handleSubmit`, `formError`, `isSubmitting` và nhận vào `setFormErrors` từ `useFormErrors`:
 
 ```ts
+// pseudo: src/forms/hooks/useFormSubmit.ts (đề xuất)
 const methods = useZodForm({ schema, defaultValues })
-const [formError, setFormError] = useState<string | null>(null)
+const { setFormErrors } = useFormErrors(methods)
+const { handleSubmit, formError, isSubmitting } = useFormSubmit({
+  request: apiCall,
+  parseError: parseApiError, // map -> ApiErrorResponse
+  onError: (apiError) => setFormErrors(apiError), // trả về message chung nếu có
+})
 
-const handleSubmit = async (values: T) => {
-  setFormError(null)
-  try {
-    const res = await apiCall(values)
-    // handle success...
-  } catch (error) {
-    // map error -> fieldErrors + formError
-  }
-}
+// Trong form:
+<Form methods={methods} onSubmit={handleSubmit}>
+  {/* fields ... */}
+  {formError && <FormErrorBanner message={formError} />}
+  <Button type="submit" disabled={isSubmitting} loading={isSubmitting}>
+    Submit
+  </Button>
+</Form>
 ```
 
 2. `Form` component hiện tại không quản lý `loading` → để ở hook/use case:

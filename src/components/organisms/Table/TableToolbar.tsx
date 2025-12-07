@@ -61,6 +61,7 @@ export const TableToolbar = React.forwardRef<HTMLDivElement, TableToolbarProps>(
     },
     ref
   ) => {
+    const containerRef = React.useRef<HTMLDivElement | null>(null)
     const showSelection = selectedCount > 0
     const hasColumnVisibility =
       Array.isArray(columnVisibilityItems) && columnVisibilityItems.length > 0 && !!onColumnVisibilityChange
@@ -83,9 +84,27 @@ export const TableToolbar = React.forwardRef<HTMLDivElement, TableToolbarProps>(
       }
     }, [isSearchOpen])
 
+    // Close menus when clicking outside
+    React.useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+        if (!containerRef.current) return
+        if (!containerRef.current.contains(event.target as Node)) {
+          setIsSearchOpen(false)
+          setIsFilterOpen(false)
+          setIsColumnsOpen(false)
+        }
+      }
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }, [])
+
     return (
       <div
-        ref={ref}
+        ref={(node) => {
+          containerRef.current = node
+          if (typeof ref === 'function') ref(node)
+          else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node
+        }}
         className={twMerge(
           clsx(
             'flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between',
@@ -104,6 +123,7 @@ export const TableToolbar = React.forwardRef<HTMLDivElement, TableToolbarProps>(
                   <IconButton
                     icon={Search}
                     size="sm"
+                    aria-label="Toggle search"
                     onClick={() => setIsSearchOpen((prev) => !prev)}
                   />
                   {isSearchOpen && (
@@ -126,6 +146,7 @@ export const TableToolbar = React.forwardRef<HTMLDivElement, TableToolbarProps>(
                       <IconButton
                         icon={Filter}
                         size="sm"
+                        aria-label="Toggle filters"
                         onClick={() => setIsFilterOpen((prev) => !prev)}
                       />
                       {isFilterOpen && (
@@ -174,6 +195,7 @@ export const TableToolbar = React.forwardRef<HTMLDivElement, TableToolbarProps>(
               <IconButton
                 icon={Columns3}
                 size="sm"
+                aria-label="Toggle columns"
                 onClick={() => setIsColumnsOpen((prev) => !prev)}
               />
               {isColumnsOpen && (

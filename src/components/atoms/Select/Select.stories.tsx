@@ -57,19 +57,24 @@ export const WithDisabledOption: Story = {
 
 export const LazyLoading = {
   render: () => {
-    const fetchOptions = async ({ page, pageSize }: { page: number; pageSize: number }) => {
+    const fetchOptions = async ({ page, pageSize, search }: { page: number; pageSize: number; search?: string }) => {
       // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      
+      await new Promise((resolve) => setTimeout(resolve, 700))
+
       const start = (page - 1) * pageSize
-      const newOptions = Array.from({ length: pageSize }, (_, i) => ({
-        label: `Lazy Option ${start + i + 1}`,
-        value: `lazy-${start + i + 1}`,
+      const allOptions = Array.from({ length: 50 }, (_, i) => ({
+        label: `Lazy Option ${i + 1}`,
+        value: `lazy-${i + 1}`,
       }))
 
+      const filtered = search
+        ? allOptions.filter((item) => item.label.toLowerCase().includes(search.toLowerCase()))
+        : allOptions
+      const slice = filtered.slice(start, start + pageSize)
+
       return {
-        data: newOptions,
-        hasMore: page < 5, // Limit to 5 pages
+        data: slice,
+        hasMore: start + pageSize < filtered.length,
       }
     }
 
@@ -78,6 +83,11 @@ export const LazyLoading = {
         fetchOptions={fetchOptions}
         placeholder="Scroll to load more..."
         pageSize={10}
+        enableSearch
+        debounceMs={400}
+        searchPlaceholder="Tìm kiếm option..."
+        emptyText="Không có kết quả"
+        loadingText="Đang tải..."
       />
     )
   },
@@ -85,7 +95,7 @@ export const LazyLoading = {
     docs: {
       description: {
         story:
-          'Demonstrates infinite scrolling. Scroll down to the bottom of the list to load more items.',
+          'Demonstrates infinite scrolling + server-side style search (debounced). Scroll to bottom để load thêm; gõ để lọc server-side.',
       },
     },
   },

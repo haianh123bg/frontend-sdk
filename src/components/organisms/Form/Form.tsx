@@ -11,6 +11,8 @@ import {
   SubmitErrorHandler,
   UseFormProps,
 } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import type { ZodSchema } from 'zod'
 
 export interface FormProps<TFieldValues extends FieldValues = FieldValues>
   extends Omit<React.FormHTMLAttributes<HTMLFormElement>, 'onSubmit' | 'onInvalid'> {
@@ -18,6 +20,14 @@ export interface FormProps<TFieldValues extends FieldValues = FieldValues>
   onSubmit?: SubmitHandler<TFieldValues>
   onInvalid?: SubmitErrorHandler<TFieldValues>
   options?: UseFormProps<TFieldValues>
+  /**
+   * Optional Zod schema. Nếu truyền, Form sẽ tự cấu hình resolver.
+   */
+  schema?: ZodSchema<TFieldValues>
+  /**
+   * Optional ref từ bên ngoài (ví dụ: hook useFormErrors trả về formRef).
+   */
+  formRef?: React.RefObject<HTMLFormElement>
 }
 
 type FormComponent = <TFieldValues extends FieldValues = FieldValues>(
@@ -25,11 +35,16 @@ type FormComponent = <TFieldValues extends FieldValues = FieldValues>(
 ) => JSX.Element
 
 function InternalForm<TFieldValues extends FieldValues = FieldValues>(
-  { children, methods, onSubmit, onInvalid, options, className, ...props }: FormProps<TFieldValues>,
+  { children, methods, onSubmit, onInvalid, options, className, schema, formRef, ...props }: FormProps<TFieldValues>,
   ref: React.Ref<HTMLFormElement>
 ) {
   const dispatch = useDispatchAction()
-  const formMethods = methods ?? useForm<TFieldValues>(options)
+  const formMethods =
+    methods ??
+    useForm<TFieldValues>({
+      ...(options || {}),
+      resolver: schema ? zodResolver(schema) : options?.resolver,
+    })
 
   const handleValid: SubmitHandler<TFieldValues> = async (data, event) => {
     dispatch(
@@ -51,9 +66,17 @@ function InternalForm<TFieldValues extends FieldValues = FieldValues>(
 
   const submitHandler = formMethods.handleSubmit(handleValid, handleInvalid)
 
+  const setRefs = (node: HTMLFormElement | null) => {
+    if (typeof ref === 'function') ref(node)
+    else if (ref) (ref as React.MutableRefObject<HTMLFormElement | null>).current = node
+    if (formRef && 'current' in formRef) {
+      (formRef as React.MutableRefObject<HTMLFormElement | null>).current = node
+    }
+  }
+
   return (
     <FormProvider {...formMethods}>
-      <form ref={ref} className={className} onSubmit={submitHandler} {...props}>
+      <form ref={setRefs} className={className} onSubmit={submitHandler} {...props}>
         {children}
       </form>
     </FormProvider>

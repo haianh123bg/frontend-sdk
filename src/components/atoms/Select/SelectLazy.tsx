@@ -8,6 +8,10 @@ import { SelectOption, SelectProps as BaseSelectProps } from './Select'
 export interface FetchOptionsParams {
   page: number
   pageSize: number
+  /**
+   * Từ khóa tìm kiếm gửi xuống server (nếu hỗ trợ).
+   */
+  search?: string
 }
 
 export interface FetchOptionsResult {
@@ -26,10 +30,18 @@ export interface SelectLazyProps extends Omit<BaseSelectProps, 'options'> {
    */
   pageSize?: number
   /**
-   * Debounce time for search (if search is implemented later) or rapid open actions
-   * @default 300
+   * Thời gian debounce cho tìm kiếm (ms).
+   * @default 400
    */
   debounceMs?: number
+  /**
+   * Bật/tắt ô tìm kiếm phía trên dropdown.
+   * @default true
+   */
+  enableSearch?: boolean
+  searchPlaceholder?: string
+  emptyText?: string
+  loadingText?: string
 }
 
 export const SelectLazy = React.forwardRef<HTMLDivElement, SelectLazyProps>(
@@ -45,6 +57,11 @@ export const SelectLazy = React.forwardRef<HTMLDivElement, SelectLazyProps>(
       value,
       defaultValue = '',
       onChange,
+      enableSearch = true,
+      debounceMs = 400,
+      searchPlaceholder = 'Tìm kiếm...',
+      emptyText = 'No options',
+      loadingText = 'Loading...',
       ...props
     },
     ref
@@ -61,6 +78,11 @@ export const SelectLazy = React.forwardRef<HTMLDivElement, SelectLazyProps>(
     const [page, setPage] = React.useState(1)
     const [hasMore, setHasMore] = React.useState(true)
     const [initialized, setInitialized] = React.useState(false)
+    const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
+
+    // Search state
+    const [searchTerm, setSearchTerm] = React.useState('')
+    const [debouncedSearch, setDebouncedSearch] = React.useState('')
 
     React.useImperativeHandle(ref, () => containerRef.current as HTMLDivElement)
 
@@ -70,23 +92,31 @@ export const SelectLazy = React.forwardRef<HTMLDivElement, SelectLazyProps>(
     const selectedOption = options.find((o) => o.value === selectedValue)
 
     const loadOptions = React.useCallback(
-      async (pageToLoad: number, isNew: boolean = false) => {
+      async (pageToLoad: number, isNew: boolean = false, search: string = debouncedSearch) => {
         if (loading) return
         setLoading(true)
         try {
-          const res = await fetchOptions({ page: pageToLoad, pageSize })
+          const res = await fetchOptions({ page: pageToLoad, pageSize, search })
           setOptions((prev) => (isNew ? res.data : [...prev, ...res.data]))
           setHasMore(res.hasMore)
           setPage(pageToLoad)
+          setErrorMessage(null)
         } catch (err) {
           console.error('Failed to load options', err)
+          setErrorMessage('Không tải được dữ liệu')
         } finally {
           setLoading(false)
           setInitialized(true)
         }
       },
-      [fetchOptions, pageSize, loading]
+      [debouncedSearch, fetchOptions, pageSize, loading]
     )
+
+    // Debounce search term
+    React.useEffect(() => {
+      const handle = window.setTimeout(() => setDebouncedSearch(searchTerm.trim()), debounceMs)
+      return () => window.clearTimeout(handle)
+    }, [searchTerm, debounceMs])
 
     // Initial load when opened
     React.useEffect(() => {
@@ -94,6 +124,12 @@ export const SelectLazy = React.forwardRef<HTMLDivElement, SelectLazyProps>(
         loadOptions(1, true)
       }
     }, [open, initialized, loadOptions, loading])
+
+    // Reload when search changes
+    React.useEffect(() => {
+      if (!open) return
+      loadOptions(1, true, debouncedSearch)
+    }, [debouncedSearch, open, loadOptions])
 
     const handleScroll = (e: React.UIEvent<HTMLUListElement>) => {
       const { scrollTop, scrollHeight, clientHeight } = e.currentTarget
@@ -171,6 +207,20 @@ export const SelectLazy = React.forwardRef<HTMLDivElement, SelectLazyProps>(
 
         {open && !disabled && (
           <div className="absolute z-50 mt-1 w-full rounded-xl bg-surface shadow-lg outline-none overflow-hidden">
+            {enableSearch && (
+              <div className="border-b border-slate-100 bg-surface px-3 py-2">
+                <input
+                  type="search"
+                  className={twMerge(
+                    'h-8 w-full rounded-lg bg-surface-alt px-3 text-sm',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100'
+                  )}
+                  placeholder={searchPlaceholder}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            )}
             <ul
               ref={listRef}
               onScroll={handleScroll}
@@ -180,9 +230,13 @@ export const SelectLazy = React.forwardRef<HTMLDivElement, SelectLazyProps>(
                 <li className="px-3 py-2 text-text-muted opacity-50">{placeholder}</li>
               )}
               
-              {options.length === 0 && !loading && (
+              {errorMessage && (
+                <li className="px-3 py-2 text-center text-xs text-red-600">{errorMessage}</li>
+              )}
+
+              {options.length === 0 && !loading && !errorMessage && (
                 <li className="px-3 py-2 text-center text-text-muted">
-                  No options
+                  {emptyText}
                 </li>
               )}
 
@@ -213,7 +267,7 @@ export const SelectLazy = React.forwardRef<HTMLDivElement, SelectLazyProps>(
               
               {loading && (
                 <li className="px-3 py-2 text-center text-xs text-text-muted animate-pulse">
-                  Loading...
+                  {loadingText}
                 </li>
               )}
             </ul>
