@@ -11,7 +11,8 @@ export interface SelectOption {
   disabled?: boolean
 }
 
-export interface SelectProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onChange'> {
+export interface SelectProps
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type' | 'value' | 'defaultValue'> {
   options: SelectOption[]
   placeholder?: string
   error?: boolean
@@ -26,10 +27,10 @@ export interface SelectProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 
    * Hữu ích cho các trường hợp muốn hiển thị menu ngay sau khi người dùng trigger từ bên ngoài.
    */
   autoOpen?: boolean
-  onChange?: (value: string) => void
+  onValueChange?: (value: string) => void
 }
 
-export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
+export const Select = React.forwardRef<HTMLInputElement, SelectProps>(
   (
     {
       className,
@@ -43,8 +44,11 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
       compact = false,
       hideCaret = false,
       autoOpen = false,
+      onValueChange,
+      name,
+      id,
       onChange,
-      ...props
+      ...inputProps
     },
     ref
   ) => {
@@ -52,8 +56,6 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
     const [open, setOpen] = React.useState(false)
     const [internalValue, setInternalValue] = React.useState(defaultValue)
     const containerRef = React.useRef<HTMLDivElement | null>(null)
-
-    React.useImperativeHandle(ref, () => containerRef.current as HTMLDivElement)
 
     const selectedValue = value ?? internalValue
     const selectedOption = options.find((o) => o.value === selectedValue)
@@ -68,7 +70,13 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
         { value: next },
         { meta: { component: 'Select' } }
       )
-      onChange?.(next)
+      if (onChange) {
+        const event = {
+          target: { value: next, name },
+        } as React.ChangeEvent<HTMLInputElement>
+        onChange(event)
+      }
+      onValueChange?.(next)
       setOpen(false)
     }
 
@@ -101,8 +109,15 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
             className
           )
         )}
-        {...props}
       >
+        <input
+          ref={ref}
+          type="hidden"
+          name={name}
+          id={id ?? name}
+          value={selectedValue ?? ''}
+          {...inputProps}
+        />
         <button
           type="button"
           onClick={() => !disabled && setOpen((prev) => !prev)}

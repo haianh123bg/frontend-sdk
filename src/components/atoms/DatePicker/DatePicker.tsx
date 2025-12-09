@@ -12,7 +12,7 @@ import { EventType } from '../../../events/types'
 export type DatePickerLocale = 'vi-VN' | 'en-US' | 'zh-CN' | 'ja-JP'
 
 export interface DatePickerProps
-  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type' | 'onChange' | 'value' | 'defaultValue'> {
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type' | 'value' | 'defaultValue'> {
   error?: boolean
   fullWidth?: boolean
   /**
@@ -21,7 +21,7 @@ export interface DatePickerProps
   placeholder?: string
   value?: string
   defaultValue?: string
-  onChange?: (date: string) => void
+  onValueChange?: (date: string) => void
   /**
    * Locale để định dạng tên tháng, mặc định là "vi-VN".
    */
@@ -99,12 +99,13 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
       value,
       defaultValue,
       disabled,
-      onChange,
+      onValueChange,
       name,
       id,
       locale = 'vi-VN',
       weekdayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
       monthLabelFormatter,
+      onChange,
       ...restProps
     },
     ref
@@ -156,7 +157,14 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
         { meta: { component: 'DatePicker' } }
       )
 
-      onChange?.(next)
+      if (onChange) {
+        const event = {
+          target: { value: next, name },
+        } as React.ChangeEvent<HTMLInputElement>
+        onChange(event)
+      }
+
+      onValueChange?.(next)
       setOpen(false)
     }
 
@@ -305,7 +313,7 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
           ref={ref}
           type="hidden"
           name={name}
-          id={id}
+          id={id ?? name}
           value={selectedValue ?? ''}
           {...restProps}
         />

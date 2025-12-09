@@ -6,9 +6,12 @@ import { Button } from '../../atoms/Button/Button'
 import { Input } from '../../atoms/Input/Input'
 import { Textarea } from '../../atoms/Textarea/Textarea'
 import { Select } from '../../atoms/Select/Select'
+import { SelectLazy } from '../../atoms/Select/SelectLazy'
+import { DatePicker } from '../../atoms/DatePicker/DatePicker'
+import { DatetimePicker } from '../../atoms/DatetimePicker/DatetimePicker'
+import { Grid } from '../../atoms/Grid/Grid'
 import { Form } from './Form'
 import { FormField } from '../../molecules/FormField/FormField'
-import { FormFieldController } from '../../molecules/FormField/FormFieldController'
 import { FormErrorBanner } from '../../molecules/FormErrorBanner/FormErrorBanner'
 import { useZodForm } from '../../../forms/useZodForm'
 import { useFormErrors } from '../../../forms/hooks/useFormErrors'
@@ -48,24 +51,15 @@ const BasicForm = () => {
 
   return (
     <Form methods={methods} onSubmit={submit} className="space-y-4">
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-text-primary" htmlFor="name">
-          Name
-        </label>
-        <Input id="name" placeholder="Jane Cooper" {...methods.register('name', { required: true })} />
-      </div>
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-text-primary" htmlFor="email">
-          Email
-        </label>
-        <Input id="email" type="email" placeholder="jane@company.com" {...methods.register('email', { required: true })} />
-      </div>
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-text-primary" htmlFor="message">
-          Message
-        </label>
-        <Textarea id="message" rows={4} placeholder="How can we help?" {...methods.register('message')} />
-      </div>
+      <FormField name="name" label="Name" required>
+        <Input placeholder="Jane Cooper" />
+      </FormField>
+      <FormField name="email" label="Email" required>
+        <Input type="email" placeholder="jane@company.com" />
+      </FormField>
+      <FormField name="message" label="Message">
+        <Textarea rows={4} placeholder="How can we help?" />
+      </FormField>
       <Button type="submit" className="w-full">
         Send message
       </Button>
@@ -85,7 +79,7 @@ const contactSchema = z.object({
 
 export const WithZodAndErrors: Story = {
   render: () => {
-    const methods = useZodForm({ schema: contactSchema, defaultValues: { name: '', email: '', message: '' } })
+    const methods = useZodForm({schema: contactSchema, defaultValues: { name: '', email: '', message: '' } })
     const onSubmit = (values: ContactFormValues) => {
       alert(JSON.stringify(values, null, 2))
     }
@@ -102,6 +96,113 @@ export const WithZodAndErrors: Story = {
         </FormField>
         <Button type="submit" className="w-full">
           Send message
+        </Button>
+      </Form>
+    )
+  },
+}
+
+interface AllFieldsValues extends ContactFormValues {
+  role: string
+  lazyRole: string
+  date: string
+  datetime: string
+}
+
+const allFieldsSchema = contactSchema.extend({
+  role: z.string().min(1, 'Role is Bắt buộc'),
+  lazyRole: z.string().min(1, 'Lazy role is required'),
+  date: z.string().min(1, 'Date is required'),
+  datetime: z.string().min(1, 'Datetime is required'),
+})
+
+export const WithAllFields: Story = {
+  render: () => {
+    const methods = useZodForm<AllFieldsValues>({
+      schema: allFieldsSchema,
+      defaultValues: {
+        name: '',
+        email: '',
+        message: '',
+        role: '',
+        lazyRole: '',
+        date: '',
+        datetime: '',
+      },
+    })
+
+    const [roleOptions] = React.useState([
+      { label: 'Admin', value: 'admin' },
+      { label: 'Editor', value: 'editor' },
+      { label: 'Viewer', value: 'viewer' },
+    ])
+
+    const onSubmit = (values: AllFieldsValues) => {
+      alert(JSON.stringify(values, null, 2))
+    }
+
+    return (
+      <Form methods={methods} onSubmit={onSubmit} className="space-y-4">
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 12, sm: 6, lg: 4 }}>
+            <FormField name="name" label="Name" required>
+              <Input placeholder="Jane Cooper" />
+            </FormField>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, lg: 4 }}>
+            <FormField name="email" label="Email" required>
+              <Input type="email" placeholder="jane@company.com" />
+            </FormField>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 12, lg: 12 }}>
+            <FormField name="message" label="Message" required>
+              <Textarea rows={4} placeholder="How can we help?" />
+            </FormField>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, lg: 4 }}>
+            <FormField name="role" label="Role" required>
+              <Select options={roleOptions} placeholder="Chọn role" />
+            </FormField>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, lg: 4 }}>
+            <FormField name="lazyRole" label="Lazy role" required>
+              <SelectLazy
+                placeholder="Chọn lazy option"
+                fetchOptions={async ({ page, pageSize, search }) => {
+                  await new Promise((r) => setTimeout(r, 400))
+                  const total = 50
+                  const start = (page - 1) * pageSize
+                  const end = Math.min(start + pageSize, total)
+                  let items = Array.from({ length: total }, (_, i) => ({
+                    label: `User ${i + 1}`,
+                    value: String(i + 1),
+                  }))
+                  if (search) {
+                    const term = search.toLowerCase()
+                    items = items.filter((o) => o.label.toLowerCase().includes(term))
+                  }
+                  const slice = items.slice(start, end)
+                  return {
+                    data: slice,
+                    hasMore: end < items.length,
+                  }
+                }}
+              />
+            </FormField>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, lg: 4 }}>
+            <FormField name="date" label="Date" required>
+              <DatePicker />
+            </FormField>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, lg: 4 }}>
+            <FormField name="datetime" label="Datetime" required>
+              <DatetimePicker />
+            </FormField>
+          </Grid>
+        </Grid>
+        <Button type="submit" className="w-full">
+          Submit
         </Button>
       </Form>
     )
@@ -149,29 +250,28 @@ export const WithApiErrors: Story = {
     return (
       <Form methods={methods} onSubmit={handleSubmit} formRef={formRef} className="space-y-4">
         <FormErrorBanner message={formError} />
-        <FormField name="name" label="Name" required>
-          <Input placeholder="Jane Cooper" />
-        </FormField>
-        <FormField name="email" label="Email" required>
-          <Input type="email" placeholder="jane@company.com" />
-        </FormField>
-        <FormFieldController
-          name="role"
-          label="Role"
-          required
-        >
-          {({ field }) => (
-            <Select
-              options={options}
-              value={field.value}
-              onChange={(v) => field.onChange(v)}
-              placeholder="Chọn role"
-            />
-          )}
-        </FormFieldController>
-        <FormField name="message" label="Message" required>
-          <Textarea rows={4} placeholder="How can we help?" />
-        </FormField>
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 12, sm: 6, lg: 4 }}>
+            <FormField name="name" label="Name" required>
+              <Input placeholder="Jane Cooper" />
+            </FormField>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, lg: 4 }}>
+            <FormField name="email" label="Email" required>
+              <Input type="email" placeholder="jane@company.com" />
+            </FormField>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, lg: 4 }}>
+            <FormField name="role" label="Role" required>
+              <Select options={options} placeholder="Chọn role" />
+            </FormField>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 12, lg: 12 }}>
+            <FormField name="message" label="Message" required>
+              <Textarea rows={4} placeholder="How can we help?" />
+            </FormField>
+          </Grid>
+        </Grid>
         <Button type="submit" className="w-full" disabled={isSubmitting} isLoading={isSubmitting}>
           Submit
         </Button>

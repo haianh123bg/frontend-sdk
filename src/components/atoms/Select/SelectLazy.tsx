@@ -19,7 +19,7 @@ export interface FetchOptionsResult {
   hasMore: boolean
 }
 
-export interface SelectLazyProps extends Omit<BaseSelectProps, 'options'> {
+export interface SelectLazyProps extends Omit<BaseSelectProps, 'options' | 'onValueChange'> {
   /**
    * Function to fetch options asynchronously.
    */
@@ -42,9 +42,10 @@ export interface SelectLazyProps extends Omit<BaseSelectProps, 'options'> {
   searchPlaceholder?: string
   emptyText?: string
   loadingText?: string
+  onValueChange?: (value: string) => void
 }
 
-export const SelectLazy = React.forwardRef<HTMLDivElement, SelectLazyProps>(
+export const SelectLazy = React.forwardRef<HTMLInputElement, SelectLazyProps>(
   (
     {
       className,
@@ -56,13 +57,16 @@ export const SelectLazy = React.forwardRef<HTMLDivElement, SelectLazyProps>(
       disabled = false,
       value,
       defaultValue = '',
-      onChange,
+      onValueChange,
       enableSearch = true,
       debounceMs = 400,
       searchPlaceholder = 'Tìm kiếm...',
       emptyText = 'No options',
       loadingText = 'Loading...',
-      ...props
+      name,
+      id,
+      onChange,
+      ...rest
     },
     ref
   ) => {
@@ -83,8 +87,6 @@ export const SelectLazy = React.forwardRef<HTMLDivElement, SelectLazyProps>(
     // Search state
     const [searchTerm, setSearchTerm] = React.useState('')
     const [debouncedSearch, setDebouncedSearch] = React.useState('')
-
-    React.useImperativeHandle(ref, () => containerRef.current as HTMLDivElement)
 
     const selectedValue = value ?? internalValue
     // Note: If the selected value is not in the currently loaded options, 
@@ -149,7 +151,13 @@ export const SelectLazy = React.forwardRef<HTMLDivElement, SelectLazyProps>(
         { value: next },
         { meta: { component: 'SelectLazy' } }
       )
-      onChange?.(next)
+      if (onChange) {
+        const event = {
+          target: { value: next, name },
+        } as React.ChangeEvent<HTMLInputElement>
+        onChange(event)
+      }
+      onValueChange?.(next)
       setOpen(false)
     }
 
@@ -176,8 +184,15 @@ export const SelectLazy = React.forwardRef<HTMLDivElement, SelectLazyProps>(
             className
           )
         )}
-        {...props}
+        {...rest}
       >
+        <input
+          ref={ref}
+          type="hidden"
+          name={name}
+          id={id ?? name}
+          value={selectedValue ?? ''}
+        />
         <button
           type="button"
           onClick={() => !disabled && setOpen((prev) => !prev)}

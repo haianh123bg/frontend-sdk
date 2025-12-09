@@ -1,5 +1,8 @@
+import * as React from 'react'
 import type { Meta, StoryObj } from '@storybook/react'
+import type { VisibilityState } from '@tanstack/react-table'
 import { Table, type TableColumn } from './Table'
+import { TableToolbar } from './TableToolbar'
 
 interface UserRow {
   id: string
@@ -114,5 +117,71 @@ export const EmptyState: Story = {
   args: {
     data: [],
     emptyState: 'No users found',
+  },
+}
+
+// ---- Virtualized large-data example dùng trực tiếp Table ----
+
+const largeData: UserRow[] = Array.from({ length: 10000 }, (_, index) => {
+  const id = index + 1
+  const roles = ['Admin', 'Editor', 'Viewer'] as const
+  return {
+    id: String(id),
+    name: `User ${id}`,
+    email: `user${id}@example.com`,
+    role: roles[id % roles.length],
+  }
+})
+
+export const VirtualizedLargeData: Story = {
+  render: () => {
+    const [search, setSearch] = React.useState('')
+    const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
+
+    const filtered = largeData.filter((row) => {
+      if (!search) return true
+      const term = search.toLowerCase()
+      return (
+        row.name.toLowerCase().includes(term) ||
+        row.email.toLowerCase().includes(term) ||
+        row.role.toLowerCase().includes(term)
+      )
+    })
+
+    const visibilityItems = columns.map((col) => {
+      const id = col.key as string
+      const visible = columnVisibility[id] !== false
+      return { id, label: col.label, visible }
+    })
+
+    return (
+      <div className="space-y-2">
+        <TableToolbar
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search users"
+          columnVisibilityItems={visibilityItems}
+          onColumnVisibilityChange={(id, visible) => {
+            setColumnVisibility((prev) => ({
+              ...prev,
+              [id]: visible,
+            }))
+          }}
+        />
+        <Table
+          columns={columns}
+          data={filtered}
+          rowKey={(row: UserRow) => row.id}
+          striped
+          size="md"
+          pageSize={100}
+          pageSizeOptions={[50, 100, 200, 500, 1000]}
+          columnVisibility={columnVisibility}
+          virtualized
+          virtualRowHeight={44}
+          virtualBodyMaxHeight={420}
+        />
+      </div>
+    )
   },
 }

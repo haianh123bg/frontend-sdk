@@ -11,13 +11,13 @@ import { useDispatchAction } from '../../../bus/hooks'
 import { EventType } from '../../../events/types'
 
 export interface DatetimePickerProps
-  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type' | 'onChange' | 'value' | 'defaultValue'> {
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type' | 'value' | 'defaultValue'> {
   error?: boolean
   fullWidth?: boolean
   placeholder?: string
   value?: string // yyyy-MM-dd HH:mm
   defaultValue?: string // yyyy-MM-dd HH:mm
-  onChange?: (value: string) => void
+  onValueChange?: (value: string) => void
   locale?: DatePickerLocale
   weekdayLabels?: [string, string, string, string, string, string, string]
   monthLabelFormatter?: (year: number, monthIndex: number) => string
@@ -82,7 +82,7 @@ export const DatetimePicker = React.forwardRef<HTMLInputElement, DatetimePickerP
       value,
       defaultValue,
       disabled,
-      onChange,
+      onValueChange,
       name,
       id,
       locale = 'vi-VN',
@@ -90,6 +90,7 @@ export const DatetimePicker = React.forwardRef<HTMLInputElement, DatetimePickerP
       monthLabelFormatter,
       hourLabel = 'Giờ',
       minuteLabel = 'Phút',
+      onChange,
       ...restProps
     },
     ref
@@ -146,7 +147,14 @@ export const DatetimePicker = React.forwardRef<HTMLInputElement, DatetimePickerP
         { meta: { component: 'DatetimePicker' } }
       )
 
-      onChange?.(next)
+      if (onChange) {
+        const event = {
+          target: { value: next, name },
+        } as React.ChangeEvent<HTMLInputElement>
+        onChange(event)
+      }
+
+      onValueChange?.(next)
     }
 
     const handleDayClick = (day: number) => {
@@ -175,7 +183,14 @@ export const DatetimePicker = React.forwardRef<HTMLInputElement, DatetimePickerP
         { meta: { component: 'DatetimePicker' } }
       )
 
-      onChange?.(next)
+      if (onChange) {
+        const event = {
+          target: { value: next, name },
+        } as React.ChangeEvent<HTMLInputElement>
+        onChange(event)
+      }
+
+      onValueChange?.(next)
     }
 
     const goToPrevious = () => {
@@ -279,7 +294,7 @@ export const DatetimePicker = React.forwardRef<HTMLInputElement, DatetimePickerP
           ref={ref}
           type="hidden"
           name={name}
-          id={id}
+          id={id ?? name}
           value={selectedValue ?? ''}
           {...restProps}
         />

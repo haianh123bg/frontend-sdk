@@ -14,10 +14,12 @@ import {
   type SortingState,
   type VisibilityState,
 } from '@tanstack/react-table'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { useDispatchAction } from '../../../bus/hooks'
 import { EventType } from '../../../events/types'
 import { Pagination } from '../../molecules/Pagination/Pagination'
 import { Select } from '../../atoms/Select/Select'
+import { Scroll } from '../../atoms/Scroll/Scroll'
 
 export interface TableColumn<T> {
   key: keyof T | string
@@ -54,6 +56,23 @@ export interface TableProps<T> extends React.HTMLAttributes<HTMLTableElement> {
    * Table itself hiện tại không render UI toggle cột, mà chỉ áp dụng visibility state.
    */
   columnVisibility?: VisibilityState
+  /**
+   * Bật virtual scroll cho phần body khi hiển thị nhiều hàng trên 1 trang.
+   * Virtual hóa áp dụng trên rowModel hiện tại (sau sort/pagination).
+   */
+  virtualized?: boolean
+  /**
+   * Chiều cao ước lượng mỗi hàng (px) dùng cho virtualizer. Mặc định ~44px.
+   */
+  virtualRowHeight?: number
+  /**
+   * Số hàng render thêm phía trên/dưới viewport để cuộn mượt hơn. Mặc định 10.
+   */
+  virtualOverscan?: number
+  /**
+   * Chiều cao tối đa của vùng body khi virtualized (px). Mặc định 420.
+   */
+  virtualBodyMaxHeight?: number
 }
 
 export function Table<T extends Record<string, any>>({
@@ -67,7 +86,7 @@ export function Table<T extends Record<string, any>>({
   emptyState = 'No data available',
   onRowClick,
   stickyHeader = false,
-  showSortIndicator = true,
+  showSortIndicator = false,
   pageSize,
   pageSizeOptions,
   initialPage = 1,
@@ -75,6 +94,10 @@ export function Table<T extends Record<string, any>>({
   sorting: sortingProp,
   onSortingChange,
   columnVisibility: columnVisibilityProp,
+  virtualized = false,
+  virtualRowHeight = 44,
+  virtualOverscan = 10,
+  virtualBodyMaxHeight = 420,
   ...props
 }: TableProps<T>) {
   const dispatch = useDispatchAction()
@@ -212,11 +235,35 @@ export function Table<T extends Record<string, any>>({
     table.setPageIndex(0)
   }
 
+  // Virtualization setup (áp dụng trên rowModel sau sort/pagination)
+  const scrollRef = React.useRef<HTMLDivElement | null>(null)
+  const rowVirtualizer = useVirtualizer({
+    count: virtualized ? rowModel.rows.length : 0,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => virtualRowHeight,
+    overscan: virtualOverscan,
+  })
+
+  const virtualRows = virtualized ? rowVirtualizer.getVirtualItems() : []
+  const totalSize = virtualized ? rowVirtualizer.getTotalSize() : 0
+  const paddingTop = virtualized && virtualRows.length > 0 ? virtualRows[0].start : 0
+  const paddingBottom =
+    virtualized && virtualRows.length > 0 ? totalSize - virtualRows[virtualRows.length - 1].end : 0
+
+  // Khi virtualized, luôn cố định header trong vùng scroll
+  const hasStickyHeader = stickyHeader || virtualized
+
   return (
-    <div className="w-full rounded-2xl bg-surface">
-      <div className="w-full overflow-x-auto">
+    <div className="w-full rounded-2xl bg-surface overflow-hidden">
+      <Scroll
+        ref={scrollRef}
+        direction="both"
+        autoHide={virtualized}
+        className="w-full"
+        style={virtualized ? { maxHeight: virtualBodyMaxHeight } : undefined}
+      >
         <table className={twMerge(clsx('w-full border-collapse text-left', className))} {...props}>
-          <thead className={twMerge(stickyHeader && 'sticky top-0 z-10 bg-surface')}>
+          <thead className={twMerge(hasStickyHeader && 'sticky top-0 z-10 bg-surface')}>
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
@@ -259,44 +306,98 @@ export function Table<T extends Record<string, any>>({
                 </td>
               </tr>
             )}
-            {rowModel.rows.map((row) => (
-              <tr
-                key={rowKey(row.original as T, row.index)}
-                onClick={() => handleRowClick(row.original as T, row.index)}
-                className={twMerge(
-                  clsx(
-                    sizeClasses[size],
-                    'px-4 text-text-primary transition-colors',
-                    effectiveRowStyle === 'striped' && row.index % 2 === 1 && 'bg-surface-alt',
-                    effectiveRowStyle === 'plain' && 'bg-surface',
-                    effectiveRowStyle === 'bordered' && 'border-b border-slate-100',
-                    onRowClick && 'cursor-pointer hover:bg-primary-50'
-                  )
-                )}
-              >
-                {row.getVisibleCells().map((cell) => {
-                  const meta = cell.column.columnDef.meta as TableColumnMeta | undefined
-                  const align = meta?.align
-                  return (
-                    <td
-                      key={cell.id}
-                      className={twMerge(
-                        clsx(
-                          'px-4 py-3 align-middle text-sm text-text-secondary',
-                          align === 'center' && 'text-center',
-                          align === 'right' && 'text-right'
-                        )
-                      )}
-                    >
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  )
-                })}
-              </tr>
-            ))}
+            {rowModel.rows.length > 0 &&
+              (virtualized ? (
+                <>
+                  {paddingTop > 0 && (
+                    <tr aria-hidden style={{ height: paddingTop }}>
+                      <td colSpan={columns.length} />
+                    </tr>
+                  )}
+                  {virtualRows.map((virtualRow) => {
+                    const row = rowModel.rows[virtualRow.index]
+                    return (
+                      <tr
+                        key={rowKey(row.original as T, row.index)}
+                        onClick={() => handleRowClick(row.original as T, row.index)}
+                        className={twMerge(
+                          clsx(
+                            sizeClasses[size],
+                            'px-4 text-text-primary transition-colors',
+                            effectiveRowStyle === 'striped' && row.index % 2 === 1 && 'bg-surface-alt',
+                            effectiveRowStyle === 'plain' && 'bg-surface',
+                            effectiveRowStyle === 'bordered' && 'border-b border-slate-100',
+                            onRowClick && 'cursor-pointer hover:bg-primary-50'
+                          )
+                        )}
+                      >
+                        {row.getVisibleCells().map((cell) => {
+                          const meta = cell.column.columnDef.meta as TableColumnMeta | undefined
+                          const align = meta?.align
+                          return (
+                            <td
+                              key={cell.id}
+                              className={twMerge(
+                                clsx(
+                                  'px-4 py-3 align-middle text-sm text-text-secondary',
+                                  align === 'center' && 'text-center',
+                                  align === 'right' && 'text-right'
+                                )
+                              )}
+                            >
+                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    )
+                  })}
+                  {paddingBottom > 0 && (
+                    <tr aria-hidden style={{ height: paddingBottom }}>
+                      <td colSpan={columns.length} />
+                    </tr>
+                  )}
+                </>
+              ) : (
+                rowModel.rows.map((row) => (
+                  <tr
+                    key={rowKey(row.original as T, row.index)}
+                    onClick={() => handleRowClick(row.original as T, row.index)}
+                    className={twMerge(
+                      clsx(
+                        sizeClasses[size],
+                        'px-4 text-text-primary transition-colors',
+                        effectiveRowStyle === 'striped' && row.index % 2 === 1 && 'bg-surface-alt',
+                        effectiveRowStyle === 'plain' && 'bg-surface',
+                        effectiveRowStyle === 'bordered' && 'border-b border-slate-100',
+                        onRowClick && 'cursor-pointer hover:bg-primary-50'
+                      )
+                    )}
+                  >
+                    {row.getVisibleCells().map((cell) => {
+                      const meta = cell.column.columnDef.meta as TableColumnMeta | undefined
+                      const align = meta?.align
+                      return (
+                        <td
+                          key={cell.id}
+                          className={twMerge(
+                            clsx(
+                              'px-4 py-3 align-middle text-sm text-text-secondary',
+                              align === 'center' && 'text-center',
+                              align === 'right' && 'text-right'
+                            )
+                          )}
+                        >
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                ))
+              ))}
           </tbody>
         </table>
-      </div>
+      </Scroll>
       {showPagination && (
         <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3 text-xs text-text-muted">
           <div className="flex items-center gap-6">
@@ -312,7 +413,7 @@ export function Table<T extends Record<string, any>>({
                   value: String(n),
                 }))}
                 value={String(pageSizeState)}
-                onChange={handlePageSizeChange}
+                onValueChange={handlePageSizeChange}
               />
             </div>
             <span>
