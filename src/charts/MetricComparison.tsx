@@ -8,7 +8,7 @@ export interface MetricComparisonProps extends Omit<EChartsBaseProps, 'option'> 
   config: MetricComparisonDto
 }
 
-export const MetricComparison: React.FC<MetricComparisonProps> = ({ config, height, className }) => {
+export const MetricComparison: React.FC<MetricComparisonProps> = ({ config, height, className, instanceId }) => {
   const option = React.useMemo<EChartsOption>(
     () => {
       const categories = config.items.map((i) => i.name)
@@ -42,7 +42,7 @@ export const MetricComparison: React.FC<MetricComparisonProps> = ({ config, heig
     [config]
   )
 
-  return <EChartsBase option={option} height={height} className={className} />
+  return <EChartsBase option={option} height={height} className={className} instanceId={instanceId} />
 }
 
 MetricComparison.displayName = 'MetricComparison'

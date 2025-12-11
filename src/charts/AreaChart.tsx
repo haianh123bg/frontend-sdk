@@ -8,7 +8,7 @@ export interface AreaChartProps extends Omit<EChartsBaseProps, 'option'> {
   config: AreaChartDto
 }
 
-export const AreaChart: React.FC<AreaChartProps> = ({ config, height, className }) => {
+export const AreaChart: React.FC<AreaChartProps> = ({ config, height, className, instanceId }) => {
   const option = React.useMemo<EChartsOption>(
     () => ({
       title: config.title ? { text: config.title } : undefined,
@@ -37,7 +37,7 @@ export const AreaChart: React.FC<AreaChartProps> = ({ config, height, className 
     [config]
   )
 
-  return <EChartsBase option={option} height={height} className={className} />
+  return <EChartsBase option={option} height={height} className={className} instanceId={instanceId} />
 }
 
 AreaChart.displayName = 'AreaChart'

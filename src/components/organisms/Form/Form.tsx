@@ -2,6 +2,7 @@
 import * as React from 'react'
 import { useDispatchAction } from '../../../bus/hooks'
 import { EventType } from '../../../events/types'
+import { generateId } from '../../../utils/id'
 import {
   FormProvider,
   useForm,
@@ -30,6 +31,7 @@ export interface FormProps<TFieldValues extends FieldValues = FieldValues>
    */
   formRef?: React.RefObject<HTMLFormElement>
   formId?: string
+  instanceId?: string
 }
 
 type FormComponent = <TFieldValues extends FieldValues = FieldValues>(
@@ -37,10 +39,15 @@ type FormComponent = <TFieldValues extends FieldValues = FieldValues>(
 ) => JSX.Element
 
 function InternalForm<TFieldValues extends FieldValues = FieldValues>(
-  { children, methods, onSubmit, onInvalid, options, className, schema, formRef, formId, ...props }: FormProps<TFieldValues>,
+  { children, methods, onSubmit, onInvalid, options, className, schema, formRef, formId, instanceId, ...props }: FormProps<TFieldValues>,
   ref: React.Ref<HTMLFormElement>
 ) {
   const dispatch = useDispatchAction()
+  const autoInstanceIdRef = React.useRef<string | null>(null)
+  if (!autoInstanceIdRef.current) {
+    autoInstanceIdRef.current = generateId()
+  }
+  const effectiveInstanceId = instanceId ?? autoInstanceIdRef.current
   const formMethods =
     methods ??
     useForm<TFieldValues>({
@@ -85,8 +92,8 @@ function InternalForm<TFieldValues extends FieldValues = FieldValues>(
   const handleValid: SubmitHandler<TFieldValues> = async (data, event) => {
     dispatch(
       EventType.FORM_SUBMIT,
-      { formData: data, formId },
-      { meta: { component: 'Form', formId }, flags: { persist: true } }
+      { formData: data, formId, instanceId: effectiveInstanceId },
+      { meta: { component: 'Form', formId, instanceId: effectiveInstanceId }, flags: { persist: true } }
     )
     await onSubmit?.(data, event)
   }
@@ -94,8 +101,8 @@ function InternalForm<TFieldValues extends FieldValues = FieldValues>(
   const handleInvalid: SubmitErrorHandler<TFieldValues> = async (errors, event) => {
     dispatch(
       EventType.FORM_VALIDATE,
-      { success: false, errors, formId },
-      { meta: { component: 'Form', formId } }
+      { success: false, errors, formId, instanceId: effectiveInstanceId },
+      { meta: { component: 'Form', formId, instanceId: effectiveInstanceId } }
     )
     focusFirstError(errors)
     await onInvalid?.(errors, event)

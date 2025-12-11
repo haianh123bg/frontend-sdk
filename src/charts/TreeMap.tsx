@@ -8,7 +8,7 @@ export interface TreeMapProps extends Omit<EChartsBaseProps, 'option'> {
   config: TreeMapDto
 }
 
-export const TreeMap: React.FC<TreeMapProps> = ({ config, height, className }) => {
+export const TreeMap: React.FC<TreeMapProps> = ({ config, height, className, instanceId }) => {
   const option = React.useMemo<EChartsOption>(
     () => ({
       title: config.title ? { text: config.title } : undefined,
@@ -52,7 +52,7 @@ export const TreeMap: React.FC<TreeMapProps> = ({ config, height, className }) =
     [config]
   )
 
-  return <EChartsBase option={option} height={height} className={className} />
+  return <EChartsBase option={option} height={height} className={className} instanceId={instanceId} />
 }
 
 TreeMap.displayName = 'TreeMap'

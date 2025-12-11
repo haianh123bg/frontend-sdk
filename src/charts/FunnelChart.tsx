@@ -8,7 +8,7 @@ export interface FunnelChartProps extends Omit<EChartsBaseProps, 'option'> {
   config: FunnelChartDto
 }
 
-export const FunnelChart: React.FC<FunnelChartProps> = ({ config, height, className }) => {
+export const FunnelChart: React.FC<FunnelChartProps> = ({ config, height, className, instanceId }) => {
   const option = React.useMemo<EChartsOption>(
     () => ({
       title: config.title ? { text: config.title } : undefined,
@@ -36,7 +36,7 @@ export const FunnelChart: React.FC<FunnelChartProps> = ({ config, height, classN
     [config]
   )
 
-  return <EChartsBase option={option} height={height} className={className} />
+  return <EChartsBase option={option} height={height} className={className} instanceId={instanceId} />
 }
 
 FunnelChart.displayName = 'FunnelChart'

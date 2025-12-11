@@ -8,7 +8,7 @@ export interface TimelineProps extends Omit<EChartsBaseProps, 'option'> {
   config: TimelineDto
 }
 
-export const Timeline: React.FC<TimelineProps> = ({ config, height, className }) => {
+export const Timeline: React.FC<TimelineProps> = ({ config, height, className, instanceId }) => {
   const option = React.useMemo<EChartsOption>(
     () => {
       const xData = config.data.map((d) =>
@@ -37,7 +37,7 @@ export const Timeline: React.FC<TimelineProps> = ({ config, height, className })
     [config]
   )
 
-  return <EChartsBase option={option} height={height} className={className} />
+  return <EChartsBase option={option} height={height} className={className} instanceId={instanceId} />
 }
 
 Timeline.displayName = 'Timeline'

@@ -8,7 +8,7 @@ export interface WaterfallChartProps extends Omit<EChartsBaseProps, 'option'> {
   config: WaterfallChartDto
 }
 
-export const WaterfallChart: React.FC<WaterfallChartProps> = ({ config, height, className }) => {
+export const WaterfallChart: React.FC<WaterfallChartProps> = ({ config, height, className, instanceId }) => {
   const option = React.useMemo<EChartsOption>(
     () => {
       const labels = config.data.map((d) => d.label)
@@ -79,7 +79,7 @@ export const WaterfallChart: React.FC<WaterfallChartProps> = ({ config, height, 
     [config]
   )
 
-  return <EChartsBase option={option} height={height} className={className} />
+  return <EChartsBase option={option} height={height} className={className} instanceId={instanceId} />
 }
 
 WaterfallChart.displayName = 'WaterfallChart'

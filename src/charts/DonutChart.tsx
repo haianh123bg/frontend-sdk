@@ -8,7 +8,7 @@ export interface DonutChartProps extends Omit<EChartsBaseProps, 'option'> {
   config: DonutChartDto
 }
 
-export const DonutChart: React.FC<DonutChartProps> = ({ config, height, className }) => {
+export const DonutChart: React.FC<DonutChartProps> = ({ config, height, className, instanceId }) => {
   const option = React.useMemo<EChartsOption>(
     () => {
       const inner = `${config.innerRadiusPercent ?? 50}%`
@@ -46,7 +46,7 @@ export const DonutChart: React.FC<DonutChartProps> = ({ config, height, classNam
     [config]
   )
 
-  return <EChartsBase option={option} height={height} className={className} />
+  return <EChartsBase option={option} height={height} className={className} instanceId={instanceId} />
 }
 
 DonutChart.displayName = 'DonutChart'

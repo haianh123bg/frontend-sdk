@@ -8,7 +8,7 @@ export interface SankeyDiagramProps extends Omit<EChartsBaseProps, 'option'> {
   config: SankeyDiagramDto
 }
 
-export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({ config, height, className }) => {
+export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({ config, height, className, instanceId }) => {
   const option = React.useMemo<EChartsOption>(
     () => ({
       title: config.title ? { text: config.title } : undefined,
@@ -26,7 +26,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({ config, height, cl
     [config]
   )
 
-  return <EChartsBase option={option} height={height} className={className} />
+  return <EChartsBase option={option} height={height} className={className} instanceId={instanceId} />
 }
 
 SankeyDiagram.displayName = 'SankeyDiagram'

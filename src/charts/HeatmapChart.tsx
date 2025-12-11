@@ -8,7 +8,7 @@ export interface HeatmapChartProps extends Omit<EChartsBaseProps, 'option'> {
   config: HeatmapDto
 }
 
-export const HeatmapChart: React.FC<HeatmapChartProps> = ({ config, height, className }) => {
+export const HeatmapChart: React.FC<HeatmapChartProps> = ({ config, height, className, instanceId }) => {
   const option = React.useMemo<EChartsOption>(
     () => {
       const { xLabels, yLabels, values } = config
@@ -74,7 +74,7 @@ export const HeatmapChart: React.FC<HeatmapChartProps> = ({ config, height, clas
     [config]
   )
 
-  return <EChartsBase option={option} height={height} className={className} />
+  return <EChartsBase option={option} height={height} className={className} instanceId={instanceId} />
 }
 
 HeatmapChart.displayName = 'HeatmapChart'

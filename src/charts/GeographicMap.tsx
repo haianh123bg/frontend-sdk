@@ -11,7 +11,7 @@ export interface GeographicMapProps extends Omit<EChartsBaseProps, 'option'> {
   config: GeographicMapDto
 }
 
-export const GeographicMap: React.FC<GeographicMapProps> = ({ config, height = 400, className }) => {
+export const GeographicMap: React.FC<GeographicMapProps> = ({ config, height = 400, className, instanceId }) => {
   const option = React.useMemo<EChartsOption>(
     () => ({
       title: config.title ? { text: config.title } : undefined,
@@ -37,7 +37,7 @@ export const GeographicMap: React.FC<GeographicMapProps> = ({ config, height = 4
     [config]
   )
 
-  return <EChartsBase option={option} height={height} className={className} />
+  return <EChartsBase option={option} height={height} className={className} instanceId={instanceId} />
 }
 
 GeographicMap.displayName = 'GeographicMap'

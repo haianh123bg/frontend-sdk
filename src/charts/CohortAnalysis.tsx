@@ -8,7 +8,7 @@ export interface CohortAnalysisProps extends Omit<EChartsBaseProps, 'option'> {
   config: CohortAnalysisDto
 }
 
-export const CohortAnalysis: React.FC<CohortAnalysisProps> = ({ config, height, className }) => {
+export const CohortAnalysis: React.FC<CohortAnalysisProps> = ({ config, height, className, instanceId }) => {
   const option = React.useMemo<EChartsOption>(
     () => {
       const data: [number, number, number][] = []
@@ -48,7 +48,7 @@ export const CohortAnalysis: React.FC<CohortAnalysisProps> = ({ config, height, 
     [config]
   )
 
-  return <EChartsBase option={option} height={height} className={className} />
+  return <EChartsBase option={option} height={height} className={className} instanceId={instanceId} />
 }
 
 CohortAnalysis.displayName = 'CohortAnalysis'

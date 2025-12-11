@@ -8,7 +8,7 @@ export interface BubbleChartProps extends Omit<EChartsBaseProps, 'option'> {
   config: BubbleChartDto
 }
 
-export const BubbleChart: React.FC<BubbleChartProps> = ({ config, height, className }) => {
+export const BubbleChart: React.FC<BubbleChartProps> = ({ config, height, className, instanceId }) => {
   const option = React.useMemo<EChartsOption>(
     () => ({
       title: config.title ? { text: config.title } : undefined,
@@ -32,7 +32,7 @@ export const BubbleChart: React.FC<BubbleChartProps> = ({ config, height, classN
     [config]
   )
 
-  return <EChartsBase option={option} height={height} className={className} />
+  return <EChartsBase option={option} height={height} className={className} instanceId={instanceId} />
 }
 
 BubbleChart.displayName = 'BubbleChart'

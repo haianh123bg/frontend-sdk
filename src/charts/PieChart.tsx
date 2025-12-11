@@ -8,7 +8,7 @@ export interface PieChartProps extends Omit<EChartsBaseProps, 'option'> {
   config: PieChartDto
 }
 
-export const PieChart: React.FC<PieChartProps> = ({ config, height, className }) => {
+export const PieChart: React.FC<PieChartProps> = ({ config, height, className, instanceId }) => {
   const option = React.useMemo<EChartsOption>(
     () => ({
       title: config.title ? { text: config.title, left: 'center', top: 8 } : undefined,
@@ -30,7 +30,7 @@ export const PieChart: React.FC<PieChartProps> = ({ config, height, className })
     [config]
   )
 
-  return <EChartsBase option={option} height={height} className={className} />
+  return <EChartsBase option={option} height={height} className={className} instanceId={instanceId} />
 }
 
 PieChart.displayName = 'PieChart'

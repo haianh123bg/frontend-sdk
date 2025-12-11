@@ -8,7 +8,7 @@ export interface RadialGaugeProps extends Omit<EChartsBaseProps, 'option'> {
   config: RadialGaugeDto
 }
 
-export const RadialGauge: React.FC<RadialGaugeProps> = ({ config, height = 260, className }) => {
+export const RadialGauge: React.FC<RadialGaugeProps> = ({ config, height = 260, className, instanceId }) => {
   const option = React.useMemo<EChartsOption>(
     () => ({
       title: config.title ? { text: config.title, left: 'center', top: 8 } : undefined,
@@ -36,7 +36,7 @@ export const RadialGauge: React.FC<RadialGaugeProps> = ({ config, height = 260, 
     [config]
   )
 
-  return <EChartsBase option={option} height={height} className={className} />
+  return <EChartsBase option={option} height={height} className={className} instanceId={instanceId} />
 }
 
 RadialGauge.displayName = 'RadialGauge'

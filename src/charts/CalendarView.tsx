@@ -8,7 +8,7 @@ export interface CalendarViewProps extends Omit<EChartsBaseProps, 'option'> {
   config: CalendarViewDto
 }
 
-export const CalendarView: React.FC<CalendarViewProps> = ({ config, height, className }) => {
+export const CalendarView: React.FC<CalendarViewProps> = ({ config, height, className, instanceId }) => {
   const option = React.useMemo<EChartsOption>(
     () => {
       const year =
@@ -49,7 +49,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ config, height, clas
     [config]
   )
 
-  return <EChartsBase option={option} height={height} className={className} />
+  return <EChartsBase option={option} height={height} className={className} instanceId={instanceId} />
 }
 
 CalendarView.displayName = 'CalendarView'

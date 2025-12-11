@@ -8,7 +8,9 @@ export interface StepItem {
   description?: string
 }
 
-export interface StepsProps extends React.HTMLAttributes<HTMLDivElement> {
+type StepsBaseProps = Omit<React.HTMLAttributes<HTMLDivElement>, 'onChange'>
+
+export interface StepsProps extends StepsBaseProps {
   items: StepItem[]
   current: number
   onChange?: (current: number) => void

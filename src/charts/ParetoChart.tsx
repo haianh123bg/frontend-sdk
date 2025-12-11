@@ -8,7 +8,7 @@ export interface ParetoChartProps extends Omit<EChartsBaseProps, 'option'> {
   config: ParetoChartDto
 }
 
-export const ParetoChart: React.FC<ParetoChartProps> = ({ config, height, className }) => {
+export const ParetoChart: React.FC<ParetoChartProps> = ({ config, height, className, instanceId }) => {
   const option = React.useMemo<EChartsOption>(
     () => {
       const sorted = [...config.data].sort((a, b) => b.value - a.value)
@@ -50,7 +50,7 @@ export const ParetoChart: React.FC<ParetoChartProps> = ({ config, height, classN
     [config]
   )
 
-  return <EChartsBase option={option} height={height} className={className} />
+  return <EChartsBase option={option} height={height} className={className} instanceId={instanceId} />
 }
 
 ParetoChart.displayName = 'ParetoChart'

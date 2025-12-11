@@ -8,7 +8,7 @@ export interface StackedChartProps extends Omit<EChartsBaseProps, 'option'> {
   config: StackedChartDto
 }
 
-export const StackedChart: React.FC<StackedChartProps> = ({ config, height, className }) => {
+export const StackedChart: React.FC<StackedChartProps> = ({ config, height, className, instanceId }) => {
   const option = React.useMemo<EChartsOption>(
     () => {
       const vertical = config.orientation !== 'horizontal'
@@ -40,7 +40,7 @@ export const StackedChart: React.FC<StackedChartProps> = ({ config, height, clas
     [config]
   )
 
-  return <EChartsBase option={option} height={height} className={className} />
+  return <EChartsBase option={option} height={height} className={className} instanceId={instanceId} />
 }
 
 StackedChart.displayName = 'StackedChart'

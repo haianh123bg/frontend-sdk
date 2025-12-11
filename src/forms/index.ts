@@ -21,6 +21,7 @@ export * from './useApiForm'
 export * from './hooks/useFormErrors'
 export * from './hooks/useFormSubmit'
 export * from './hooks/useFormWizard'
+export * from './hooks/useFormAiControl'
 export * from '../components/molecules/FormField/FormFieldController'
 export * from '../components/molecules/FormErrorBanner/FormErrorBanner'
 

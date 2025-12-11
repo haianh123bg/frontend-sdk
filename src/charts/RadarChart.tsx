@@ -8,7 +8,7 @@ export interface RadarChartProps extends Omit<EChartsBaseProps, 'option'> {
   config: RadarChartDto
 }
 
-export const RadarChart: React.FC<RadarChartProps> = ({ config, height, className }) => {
+export const RadarChart: React.FC<RadarChartProps> = ({ config, height, className, instanceId }) => {
   const option = React.useMemo<EChartsOption>(
     () => ({
       title: config.title ? { text: config.title } : undefined,
@@ -27,7 +27,7 @@ export const RadarChart: React.FC<RadarChartProps> = ({ config, height, classNam
     [config]
   )
 
-  return <EChartsBase option={option} height={height} className={className} />
+  return <EChartsBase option={option} height={height} className={className} instanceId={instanceId} />
 }
 
 RadarChart.displayName = 'RadarChart'

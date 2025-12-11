@@ -17,6 +17,7 @@ import {
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useDispatchAction } from '../../../bus/hooks'
 import { EventType } from '../../../events/types'
+import { generateId } from '../../../utils/id'
 import { Pagination } from '../../molecules/Pagination/Pagination'
 import { Select } from '../../atoms/Select/Select'
 import { Scroll } from '../../atoms/Scroll/Scroll'
@@ -73,6 +74,7 @@ export interface TableProps<T> extends React.HTMLAttributes<HTMLTableElement> {
    * Chiều cao tối đa của vùng body khi virtualized (px). Mặc định 420.
    */
   virtualBodyMaxHeight?: number
+  instanceId?: string
 }
 
 export function Table<T extends Record<string, any>>({
@@ -98,9 +100,15 @@ export function Table<T extends Record<string, any>>({
   virtualRowHeight = 44,
   virtualOverscan = 10,
   virtualBodyMaxHeight = 420,
+  instanceId,
   ...props
 }: TableProps<T>) {
   const dispatch = useDispatchAction()
+  const autoInstanceIdRef = React.useRef<string | null>(null)
+  if (!autoInstanceIdRef.current) {
+    autoInstanceIdRef.current = generateId()
+  }
+  const effectiveInstanceId = instanceId ?? autoInstanceIdRef.current
   const [sortingState, setSortingState] = React.useState<SortingState>([])
 
   const effectiveRowStyle: NonNullable<TableProps<T>['rowStyle']> = rowStyle ?? (striped ? 'striped' : 'plain')
@@ -168,16 +176,27 @@ export function Table<T extends Record<string, any>>({
     if (primary) {
       dispatch(
         EventType.UI_CLICK,
-        { column: primary.id, direction },
-        { meta: { component: 'Table' } }
+        { column: primary.id, direction, instanceId: effectiveInstanceId },
+        { meta: { component: 'Table', instanceId: effectiveInstanceId } }
       )
     } else {
       dispatch(
         EventType.UI_CLICK,
-        { column: 'all', direction },
-        { meta: { component: 'Table' } }
+        { column: 'all', direction, instanceId: effectiveInstanceId },
+        { meta: { component: 'Table', instanceId: effectiveInstanceId } }
       )
     }
+
+    dispatch(
+      'TABLE.SORT_CHANGE',
+      {
+        sorting: nextSorting,
+        primaryColumn: primary?.id ?? null,
+        direction,
+        instanceId: effectiveInstanceId,
+      },
+      { meta: { component: 'Table', instanceId: effectiveInstanceId } }
+    )
   }
 
   const table = useReactTable({
@@ -207,6 +226,12 @@ export function Table<T extends Record<string, any>>({
     if (!Number.isFinite(next)) return
     const clamped = Math.min(Math.max(1, next), totalPages)
     table.setPageIndex(clamped - 1)
+
+    dispatch(
+      'TABLE.PAGE_CHANGE',
+      { page: clamped, pageSize: pagination.pageSize, instanceId: effectiveInstanceId },
+      { meta: { component: 'Table', instanceId: effectiveInstanceId } }
+    )
   }
 
   const sizeClasses = {
@@ -217,10 +242,16 @@ export function Table<T extends Record<string, any>>({
 
   const handleRowClick = (row: T, index: number) => {
     if (!onRowClick) return
+    const key = rowKey(row, index)
     dispatch(
       EventType.UI_CLICK,
-      { rowKey: rowKey(row, index) },
-      { meta: { component: 'Table' } }
+      { rowKey: key, instanceId: effectiveInstanceId },
+      { meta: { component: 'Table', instanceId: effectiveInstanceId } }
+    )
+    dispatch(
+      'TABLE.ROW_CLICK',
+      { rowKey: key, rowIndex: index, instanceId: effectiveInstanceId },
+      { meta: { component: 'Table', instanceId: effectiveInstanceId } }
     )
     onRowClick(row)
   }
@@ -233,6 +264,12 @@ export function Table<T extends Record<string, any>>({
     if (!Number.isFinite(next) || next <= 0) return
     table.setPageSize(next)
     table.setPageIndex(0)
+
+    dispatch(
+      'TABLE.PAGE_SIZE_CHANGE',
+      { pageSize: next, instanceId: effectiveInstanceId },
+      { meta: { component: 'Table', instanceId: effectiveInstanceId } }
+    )
   }
 
   // Virtualization setup (áp dụng trên rowModel sau sort/pagination)
