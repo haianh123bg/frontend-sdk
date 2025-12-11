@@ -324,9 +324,9 @@ export const DatetimePicker = React.forwardRef<HTMLInputElement, DatetimePickerP
           <div
             className={twMerge(
               clsx(
-                'fixed inset-x-0 bottom-0 z-50 w-full rounded-t-2xl bg-surface shadow-lg outline-none',
-                'max-h-[80vh] overflow-hidden',
-                'sm:absolute sm:bottom-auto sm:left-0 sm:right-auto sm:mt-1 sm:rounded-xl sm:min-w-[280px] sm:max-w-md'
+                // Dropdown bám theo input
+                'absolute left-0 z-50 mt-1 w-full rounded-xl bg-surface shadow-lg outline-none',
+                'max-h-[80vh] overflow-hidden sm:min-w-[280px] sm:max-w-md'
               )
             )}
           >

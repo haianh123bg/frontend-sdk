@@ -13,9 +13,12 @@ import { Grid } from '../../atoms/Grid/Grid'
 import { Form } from './Form'
 import { FormField } from '../../molecules/FormField/FormField'
 import { FormErrorBanner } from '../../molecules/FormErrorBanner/FormErrorBanner'
+import { FormSubmitButton } from '../../molecules/FormSubmitButton/FormSubmitButton'
+import { FormFieldArray } from '../../molecules/FormFieldArray/FormFieldArray'
+import { FormFieldController } from '../../molecules/FormField/FormFieldController'
 import { useZodForm } from '../../../forms/useZodForm'
-import { useFormErrors } from '../../../forms/hooks/useFormErrors'
-import { useFormSubmit } from '../../../forms/hooks/useFormSubmit'
+import { useApiForm } from '../../../forms/useApiForm'
+import { useFormWizard, type FormWizardStep } from '../../../forms/hooks/useFormWizard'
 
 interface ContactFormValues {
   name: string
@@ -97,6 +100,266 @@ export const WithZodAndErrors: Story = {
         <Button type="submit" className="w-full">
           Send message
         </Button>
+      </Form>
+    )
+  },
+}
+
+interface WizardValues extends ContactFormValues {
+  role: string
+  date: string
+}
+
+const wizardSchema = contactSchema.extend({
+  role: z.string().min(1, 'Role is required'),
+  date: z.string().min(1, 'Date is required'),
+})
+
+export const MultiStepWithFocus: Story = {
+  render: () => {
+    const formRef = React.useRef<HTMLFormElement | null>(null)
+    const methods = useZodForm<WizardValues>({
+      schema: wizardSchema,
+      defaultValues: {
+        name: '',
+        email: '',
+        message: '',
+        role: '',
+        date: '',
+      },
+    })
+
+    const [roleOptions] = React.useState([
+      { label: 'Admin', value: 'admin' },
+      { label: 'Editor', value: 'editor' },
+      { label: 'Viewer', value: 'viewer' },
+    ])
+
+    const steps: FormWizardStep<WizardValues>[] = React.useMemo(
+      () => [
+        { id: 'basic', fields: ['name', 'email'] },
+        { id: 'meta', fields: ['role', 'date'] },
+        { id: 'review' },
+      ],
+      []
+    )
+
+    const wizard = useFormWizard(methods, steps, { shouldFocus: true })
+
+    const handleFinalSubmit = (values: WizardValues) => {
+      alert(JSON.stringify(values, null, 2))
+    }
+
+    const handleBack = () => {
+      wizard.back()
+    }
+
+    const handleNextOrSubmit = async () => {
+      if (!wizard.isLastStep) {
+        const ok = await wizard.next()
+        if (!ok) return
+        return
+      }
+
+      // Bước cuối: submit form, để Form.tsx xử lý validate toàn bộ và focus lỗi đầu tiên nếu có
+      formRef.current?.requestSubmit()
+    }
+
+    return (
+      <Form
+        methods={methods}
+        onSubmit={handleFinalSubmit}
+        formRef={formRef}
+        className="space-y-4"
+        formId="multi-step-form"
+      >
+        <div className="text-sm font-medium">Step {wizard.stepIndex + 1} / {wizard.steps.length}</div>
+
+        {wizard.stepIndex === 0 && (
+          <div className="space-y-3">
+            <FormField name="name" label="Name" required>
+              <Input placeholder="Jane Cooper" />
+            </FormField>
+            <FormField name="email" label="Email" required>
+              <Input type="email" placeholder="jane@company.com" />
+            </FormField>
+          </div>
+        )}
+
+        {wizard.stepIndex === 1 && (
+          <div className="space-y-3">
+            <FormFieldController<WizardValues>
+              name="role"
+              label="Role"
+              required
+              render={({ field }) => (
+                <Select
+                  options={roleOptions}
+                  placeholder="Chọn role"
+                  value={field.value}
+                  onChange={field.onChange}
+                  name={field.name}
+                />
+              )}
+            />
+            <FormFieldController<WizardValues>
+              name="date"
+              label="Date"
+              required
+              render={({ field }) => (
+                <DatePicker value={field.value} onChange={field.onChange} name={field.name} />
+              )}
+            />
+          </div>
+        )}
+
+        {wizard.stepIndex === 2 && (
+          <div className="space-y-2 text-sm">
+            <div className="font-medium">Review</div>
+            <pre className="rounded bg-surface-alt p-3 text-xs">
+              {JSON.stringify(methods.watch(), null, 2)}
+            </pre>
+          </div>
+        )}
+
+        <div className="flex justify-between pt-2">
+          <Button type="button" variant="ghost" disabled={wizard.isFirstStep} onClick={handleBack}>
+            Back
+          </Button>
+          <Button type="button" onClick={handleNextOrSubmit}>
+            {wizard.isLastStep ? 'Submit' : 'Next'}
+          </Button>
+        </div>
+      </Form>
+    )
+  },
+}
+
+interface ControllerFieldsValues extends ContactFormValues {
+  role: string
+  date: string
+}
+
+const controllerSchema = contactSchema.extend({
+  role: z.string().min(1, 'Role is required'),
+  date: z.string().min(1, 'Date is required'),
+})
+
+export const WithFormFieldController: Story = {
+  render: () => {
+    const methods = useZodForm<ControllerFieldsValues>({
+      schema: controllerSchema,
+      defaultValues: {
+        name: '',
+        email: '',
+        message: '',
+        role: '',
+        date: '',
+      },
+    })
+
+    const [roleOptions] = React.useState([
+      { label: 'Admin', value: 'admin' },
+      { label: 'Editor', value: 'editor' },
+      { label: 'Viewer', value: 'viewer' },
+    ])
+
+    const onSubmit = (values: ControllerFieldsValues) => {
+      alert(JSON.stringify(values, null, 2))
+    }
+
+    return (
+      <Form methods={methods} onSubmit={onSubmit} className="space-y-4">
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <FormField name="name" label="Name" required>
+              <Input placeholder="Jane Cooper" />
+            </FormField>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <FormField name="email" label="Email" required>
+              <Input type="email" placeholder="jane@company.com" />
+            </FormField>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <FormFieldController<ControllerFieldsValues>
+              name="role"
+              label="Role"
+              required
+              render={({ field }) => (
+                <Select
+                  options={roleOptions}
+                  placeholder="Chọn role"
+                  value={field.value}
+                  onChange={field.onChange}
+                  name={field.name}
+                />
+              )}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <FormFieldController<ControllerFieldsValues>
+              name="date"
+              label="Date"
+              required
+              render={({ field }) => (
+                <DatePicker value={field.value} onChange={field.onChange} name={field.name} />
+              )}
+            />
+          </Grid>
+        </Grid>
+        <FormSubmitButton fullWidth>Submit</FormSubmitButton>
+      </Form>
+    )
+  },
+}
+
+interface EmailsFormValues {
+  emails: { value: string }[]
+}
+
+export const WithFieldArray: Story = {
+  render: () => {
+    const methods = useForm<EmailsFormValues>({
+      defaultValues: {
+        emails: [{ value: '' }],
+      },
+    })
+
+    return (
+      <Form methods={methods} className="space-y-4">
+        <FormFieldArray<EmailsFormValues, 'emails'> name="emails">
+          {({ fields, append, remove }) => (
+            <div className="space-y-2">
+              {fields.map((field, index) => (
+                <div key={field.id} className="flex items-center gap-2">
+                  <FormField
+                    name={`emails.${index}.value` as any}
+                    label={index === 0 ? 'Email' : undefined}
+                    className="flex-1"
+                  >
+                    <Input placeholder={`Email ${index + 1}`} />
+                  </FormField>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => remove(index)}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => append({ value: '' })}
+              >
+                Add email
+              </Button>
+            </div>
+          )}
+        </FormFieldArray>
+        <FormSubmitButton fullWidth>Submit</FormSubmitButton>
       </Form>
     )
   },
@@ -219,18 +482,17 @@ const apiSchema = contactSchema.extend({
 
 export const WithApiErrors: Story = {
   render: () => {
-    const methods = useZodForm<ApiValues>({
-      schema: apiSchema,
-      defaultValues: { name: '', email: '', message: '', role: '' },
-    })
-    const { setFormErrors, formRef } = useFormErrors(methods)
     const [options] = React.useState([
       { label: 'Admin', value: 'admin' },
       { label: 'Editor', value: 'editor' },
       { label: 'Viewer', value: 'viewer' },
     ])
 
-    const { handleSubmit, formError, isSubmitting } = useFormSubmit<ApiValues, { ok: boolean }, { message?: string; fieldErrors?: { field: string; message: string }[] }>({
+    const { methods, formRef, handleSubmit, formError, isSubmitting } = useApiForm<ApiValues, { ok: boolean}>({
+      schema: apiSchema,
+      formOptions: {
+        defaultValues: { name: '', email: '', message: '', role: '' },
+      },
       request: async (values) => {
         await new Promise((r) => setTimeout(r, 600))
         if (values.email === 'taken@example.com') {
@@ -244,7 +506,6 @@ export const WithApiErrors: Story = {
         return { ok: true }
       },
       parseError: (err) => err as any,
-      onError: (apiErr) => setFormErrors(apiErr),
     })
 
     return (

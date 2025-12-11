@@ -363,11 +363,9 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
           <div
             className={twMerge(
               clsx(
-                // Mobile: full-width bottom sheet
-                'fixed inset-x-0 bottom-0 z-50 w-full rounded-t-2xl bg-surface shadow-lg outline-none',
-                'max-h-[80vh] overflow-hidden',
-                // Desktop: compact dropdown under input
-                'sm:absolute sm:bottom-auto sm:left-0 sm:right-auto sm:mt-1 sm:rounded-xl sm:min-w-[260px] sm:max-w-sm'
+                // Dropdown bám theo input
+                'absolute left-0 z-50 mt-1 w-full rounded-xl bg-surface shadow-lg outline-none',
+                'max-h-[80vh] overflow-hidden sm:min-w-[260px] sm:max-w-sm'
               )
             )}
           >

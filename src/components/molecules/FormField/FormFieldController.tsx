@@ -24,7 +24,7 @@ export interface FormFieldControllerProps<TFieldValues extends FieldValues> exte
     field: ControllerRenderProps<TFieldValues, Path<TFieldValues>>
     fieldState: ControllerFieldState
   }) => React.ReactNode
-  control?: any
+  control?: Control<TFieldValues>
 }
 
 export function FormFieldController<TFieldValues extends FieldValues>({
@@ -46,7 +46,7 @@ export function FormFieldController<TFieldValues extends FieldValues>({
 
   return (
     <Controller<TFieldValues, Path<TFieldValues>>
-      control={(control as Control<TFieldValues> | undefined) ?? ctxControl}
+      control={control ?? ctxControl}
       name={name}
       render={({ field, fieldState }) => (
         <FormField
