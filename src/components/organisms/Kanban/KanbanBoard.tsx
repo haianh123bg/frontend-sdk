@@ -25,6 +25,7 @@ import { Tag } from '../../atoms/Tag/Tag'
 import { Button } from '../../atoms/Button/Button'
 import { EmptyState } from '../../molecules/EmptyState/EmptyState'
 import { Modal } from '../../molecules/Modal/Modal'
+import { KanbanBoardToolbar } from '../../molecules/KanbanBoardToolbar/KanbanBoardToolbar'
 import { useDispatchAction } from '../../../bus/hooks'
 import { EventType } from '../../../events/types'
 import { generateId } from '../../../utils/id'
@@ -557,6 +558,11 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
   const hasItems = visibleColumns.some((col) => col.itemIds.length > 0)
 
+  const totalItems = React.useMemo(
+    () => visibleColumns.reduce((sum, col) => sum + col.itemIds.length, 0),
+    [visibleColumns]
+  )
+
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
       <div
@@ -567,33 +573,30 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
         role="region"
         aria-label="Kanban Board"
       >
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <h2 className="text-sm font-semibold text-text-primary">Board</h2>
-            {locale && (
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] uppercase text-text-muted">
-                {locale}
-              </span>
-            )}
-          </div>
-          {permissions?.canCreate && onCreate && (
-            <Button
-              size="sm"
-              variant="primary"
-              onClick={() => {
-                dispatch(
-                  EventType.UI_CLICK,
-                  { component: 'KanbanBoard', action: 'create', instanceId: effectiveInstanceId },
-                  { meta: { component: 'KanbanBoard', instanceId: effectiveInstanceId } }
-                )
-                setFormMode('create')
-                setActiveColumnKey(null)
-              }}
-            >
-              Thêm task
-            </Button>
-          )}
-        </div>
+        <KanbanBoardToolbar
+          title="Board"
+          locale={locale}
+          count={totalItems}
+          actions={
+            permissions?.canCreate && onCreate ? (
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => {
+                  dispatch(
+                    EventType.UI_CLICK,
+                    { component: 'KanbanBoard', action: 'create', instanceId: effectiveInstanceId },
+                    { meta: { component: 'KanbanBoard', instanceId: effectiveInstanceId } }
+                  )
+                  setFormMode('create')
+                  setActiveColumnKey(null)
+                }}
+              >
+                Thêm task
+              </Button>
+            ) : null
+          }
+        />
 
         {!hasItems && (
           <EmptyState

@@ -2,6 +2,7 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import { useState } from 'react'
 import { Steps, type StepsProps } from './Steps'
+import { StepNavigation } from './StepNavigation'
 
 const meta: Meta<typeof Steps> = {
   title: 'Molecules/Steps',
@@ -63,33 +64,19 @@ export const Playground: Story = {
 
     return (
       <div className="space-y-4 p-8 bg-surface-elevated rounded-lg">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className="rounded-md bg-primary-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-primary-600 disabled:cursor-not-allowed disabled:bg-slate-300"
-            onClick={() => setCurrent((c) => Math.max(0, c - 1))}
-            disabled={current <= 0}
-          >
-            Trước
-          </button>
-          <button
-            type="button"
-            className="rounded-md bg-primary-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-primary-600 disabled:cursor-not-allowed disabled:bg-slate-300"
-            onClick={() => setCurrent((c) => Math.min((args.items ?? defaultItems).length - 1, c + 1))}
-            disabled={current >= (args.items ?? defaultItems).length - 1}
-          >
-            Tiếp
-          </button>
-          <span className="text-xs text-text-muted">
-            Step hiện tại: {current + 1} / {(args.items ?? defaultItems).length}
-          </span>
-        </div>
-
         <Steps
           {...args}
           items={args.items ?? defaultItems}
           current={current}
           onChange={setCurrent}
+        />
+        <StepNavigation
+          current={current}
+          total={(args.items ?? defaultItems).length}
+          onPrev={() => setCurrent((c) => Math.max(0, c - 1))}
+          onNext={() =>
+            setCurrent((c) => Math.min((args.items ?? defaultItems).length - 1, c + 1))
+          }
         />
       </div>
     )
