@@ -19,6 +19,7 @@ export interface MenuDropdownProps {
   value?: string
   onChange?: (value: string) => void
   className?: string
+  headerRight?: React.ReactNode
   /**
    * Tuỳ biến render cho từng option. Nếu truyền renderOption, component sẽ
    * giao toàn quyền render + handle click cho caller (onChange sẽ không được dùng tự động).
@@ -48,6 +49,7 @@ export const MenuDropdown: React.FC<MenuDropdownProps> = ({
   value,
   onChange,
   className,
+  headerRight,
   renderOption,
   side = 'bottom',
   align = 'start',
@@ -103,13 +105,13 @@ export const MenuDropdown: React.FC<MenuDropdownProps> = ({
       style={{ ...offsetStyle, ...positionStyle }}
     >
       <div className="rounded-2xl bg-surface text-sm shadow-lg">
-        <button
-          type="button"
-          className="flex w-full items-center justify-between rounded-2xl px-4 py-2 text-xs text-text-muted"
-        >
-          <span>{label}</span>
-          <span className="text-[10px]">▲</span>
-        </button>
+        <div className="flex w-full items-center justify-between rounded-2xl px-4 py-2 text-xs text-text-muted">
+          <span className="truncate">{label}</span>
+          <div className="flex items-center gap-2">
+            {headerRight}
+            <span className="text-[10px]">▲</span>
+          </div>
+        </div>
         <div className="pt-1">
           {options.map((option) => {
             const isSelected = option.value === selectedValue

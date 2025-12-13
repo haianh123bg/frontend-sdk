@@ -18,6 +18,14 @@ export interface DatetimePickerProps
   value?: string // yyyy-MM-dd HH:mm
   defaultValue?: string // yyyy-MM-dd HH:mm
   onValueChange?: (value: string) => void
+  /**
+   * Khi bật autoOpen, dropdown sẽ tự mở khi component render và không bị disabled.
+   */
+  autoOpen?: boolean
+  /**
+   * Khi bật inline, chỉ render phần panel chọn ngày/giờ và không render button trigger.
+   */
+  inline?: boolean
   locale?: DatePickerLocale
   weekdayLabels?: [string, string, string, string, string, string, string]
   monthLabelFormatter?: (year: number, monthIndex: number) => string
@@ -83,6 +91,8 @@ export const DatetimePicker = React.forwardRef<HTMLInputElement, DatetimePickerP
       defaultValue,
       disabled,
       onValueChange,
+      autoOpen = false,
+      inline = false,
       name,
       id,
       locale = 'vi-VN',
@@ -107,12 +117,13 @@ export const DatetimePicker = React.forwardRef<HTMLInputElement, DatetimePickerP
     const [viewMode, setViewMode] = React.useState<'day' | 'month' | 'year'>('day')
     const [hours, setHours] = React.useState(initial.getHours())
     const [minutes, setMinutes] = React.useState(initial.getMinutes())
-    const [open, setOpen] = React.useState(false)
+    const [open, setOpen] = React.useState(inline)
 
     const containerRef = React.useRef<HTMLDivElement | null>(null)
 
     React.useEffect(() => {
       if (!open) return
+      if (inline) return
       const handleClickOutside = (event: MouseEvent) => {
         if (!containerRef.current) return
         if (!containerRef.current.contains(event.target as Node)) {
@@ -121,7 +132,14 @@ export const DatetimePicker = React.forwardRef<HTMLInputElement, DatetimePickerP
       }
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
-    }, [open])
+    }, [open, inline])
+
+    React.useEffect(() => {
+      if (inline) return
+      if (autoOpen && !open && !disabled) {
+        setOpen(true)
+      }
+    }, [autoOpen, open, disabled, inline])
 
     React.useEffect(() => {
       const dt = parseDateTime(selectedValue)
@@ -299,33 +317,37 @@ export const DatetimePicker = React.forwardRef<HTMLInputElement, DatetimePickerP
           {...restProps}
         />
 
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => !disabled && setOpen((prev) => !prev)}
-          className={twMerge(
-            clsx(
-              'flex h-10 w-full items-center justify-between rounded-xl bg-surface-alt px-3 py-2',
-              'text-left',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100',
-              'transition-all duration-200',
-              !disabled && 'cursor-pointer',
-              error && 'bg-red-50 text-red-700 focus-visible:ring-red-100'
-            )
-          )}
-        >
-          <span className={clsx('truncate', !selectedValue && 'text-text-muted')}>
-            {selectedValue ? formatLabel(selectedValue) : placeholder}
-          </span>
-          <Icon icon={Clock} variant="muted" size="sm" className="ml-2" />
-        </button>
+        {!inline && (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => !disabled && setOpen((prev) => !prev)}
+            className={twMerge(
+              clsx(
+                'flex h-10 w-full items-center justify-between rounded-xl bg-surface-alt px-3 py-2',
+                'text-left',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100',
+                'transition-all duration-200',
+                !disabled && 'cursor-pointer',
+                error && 'bg-red-50 text-red-700 focus-visible:ring-red-100'
+              )
+            )}
+          >
+            <span className={clsx('truncate', !selectedValue && 'text-text-muted')}>
+              {selectedValue ? formatLabel(selectedValue) : placeholder}
+            </span>
+            <Icon icon={Clock} variant="muted" size="sm" className="ml-2" />
+          </button>
+        )}
 
-        {open && !disabled && (
+        {(open || inline) && !disabled && (
           <div
             className={twMerge(
               clsx(
                 // Dropdown bám theo input
-                'absolute left-0 z-50 mt-1 w-full rounded-xl bg-surface shadow-lg outline-none',
+                inline
+                  ? 'relative w-full rounded-xl bg-transparent shadow-none outline-none'
+                  : 'absolute left-0 z-50 mt-1 w-full rounded-xl bg-surface shadow-lg outline-none',
                 'max-h-[80vh] overflow-hidden sm:min-w-[280px] sm:max-w-md'
               )
             )}

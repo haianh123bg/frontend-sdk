@@ -4,6 +4,7 @@ import { clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import { useDispatchAction } from '../../../bus/hooks'
 import { EventType } from '../../../events/types'
+import { Scroll } from '../Scroll/Scroll'
 
 export interface SelectOption {
   label: string
@@ -22,6 +23,7 @@ export interface SelectProps
   defaultValue?: string
   compact?: boolean
   hideCaret?: boolean
+  variant?: 'filled' | 'ghost'
   /**
    * Khi bật autoOpen, dropdown sẽ tự mở khi component render và không bị disabled.
    * Hữu ích cho các trường hợp muốn hiển thị menu ngay sau khi người dùng trigger từ bên ngoài.
@@ -43,6 +45,7 @@ export const Select = React.forwardRef<HTMLInputElement, SelectProps>(
       defaultValue = '',
       compact = false,
       hideCaret = false,
+      variant = 'filled',
       autoOpen = false,
       onValueChange,
       name,
@@ -123,13 +126,16 @@ export const Select = React.forwardRef<HTMLInputElement, SelectProps>(
           onClick={() => !disabled && setOpen((prev) => !prev)}
           className={twMerge(
             clsx(
-              'flex w-full items-center justify-between rounded-xl bg-surface-alt px-3 py-2',
+              'flex w-full items-center justify-between',
+              variant === 'filled' && 'rounded-xl bg-surface-alt px-3 py-2',
+              variant === 'ghost' && 'rounded-lg bg-transparent px-1 py-1 hover:bg-slate-50',
               'text-left',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100',
               'transition-all duration-200',
               !disabled && 'cursor-pointer',
               error && 'bg-red-50 text-red-700 focus-visible:ring-red-100',
-              compact && 'h-8 rounded-lg px-2 text-xs'
+              compact && variant === 'filled' && 'h-8 rounded-lg px-2 text-xs',
+              compact && variant === 'ghost' && 'h-7 text-xs'
             )
           )}
         >
@@ -149,37 +155,47 @@ export const Select = React.forwardRef<HTMLInputElement, SelectProps>(
         </button>
 
         {open && !disabled && (
-          <div className="absolute z-50 mt-1 w-full rounded-xl bg-surface shadow-lg outline-none">
-            <ul className="max-h-60 overflow-auto py-1 text-sm">
-              {placeholder && (
-                <li className="px-3 py-2 text-text-muted">
-                  {placeholder}
-                </li>
-              )}
-              {options.map((option) => {
-                const isSelected = option.value === selectedValue
-                return (
-                  <li key={option.value}>
-                    <button
-                      type="button"
-                      disabled={option.disabled}
-                      onClick={() => handleSelect(option.value)}
-                      className={twMerge(
-                        clsx(
-                          'flex w-full items-center justify-between px-3 py-2 text-left',
-                          'transition-colors',
-                          !option.disabled && 'hover:bg-slate-50 cursor-pointer',
-                          option.disabled && 'cursor-not-allowed text-text-muted',
-                          isSelected && 'bg-primary-50'
-                        )
-                      )}
-                    >
-                      <span className="truncate">{option.label}</span>
-                    </button>
+          <div
+            className={twMerge(
+              clsx(
+                'absolute z-50 mt-1 rounded-xl bg-surface shadow-lg outline-none overflow-hidden',
+                // giữ tối thiểu bằng trigger nhưng cho phép nở theo nội dung
+                'min-w-full w-max max-w-[min(420px,calc(100vw-24px))]'
+              )
+            )}
+          >
+            <Scroll direction="vertical" className="max-h-60 py-1 text-sm">
+              <ul>
+                {placeholder && (
+                  <li className="px-3 py-2 text-text-muted">
+                    {placeholder}
                   </li>
-                )
-              })}
-            </ul>
+                )}
+                {options.map((option) => {
+                  const isSelected = option.value === selectedValue
+                  return (
+                    <li key={option.value}>
+                      <button
+                        type="button"
+                        disabled={option.disabled}
+                        onClick={() => handleSelect(option.value)}
+                        className={twMerge(
+                          clsx(
+                            'flex w-full items-center justify-between px-3 py-2 text-left',
+                            'transition-colors',
+                            !option.disabled && 'hover:bg-slate-50 cursor-pointer',
+                            option.disabled && 'cursor-not-allowed text-text-muted',
+                            isSelected && 'bg-primary-50'
+                          )
+                        )}
+                      >
+                        <span className="whitespace-nowrap">{option.label}</span>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            </Scroll>
           </div>
         )}
       </div>

@@ -23,6 +23,14 @@ export interface DatePickerProps
   defaultValue?: string
   onValueChange?: (date: string) => void
   /**
+   * Khi bật autoOpen, calendar sẽ tự mở khi component render và không bị disabled.
+   */
+  autoOpen?: boolean
+  /**
+   * Khi bật inline, chỉ render phần calendar (như dropdown content) và không render input trigger.
+   */
+  inline?: boolean
+  /**
    * Locale để định dạng tên tháng, mặc định là "vi-VN".
    */
   locale?: DatePickerLocale
@@ -100,6 +108,8 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
       defaultValue,
       disabled,
       onValueChange,
+      autoOpen = false,
+      inline = false,
       name,
       id,
       locale = 'vi-VN',
@@ -120,7 +130,7 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
     const [viewYear, setViewYear] = React.useState(initialDate.getFullYear())
     const [viewMonth, setViewMonth] = React.useState(initialDate.getMonth()) // 0-11
     const [viewMode, setViewMode] = React.useState<'day' | 'month' | 'year'>('day')
-    const [open, setOpen] = React.useState(false)
+    const [open, setOpen] = React.useState(inline)
 
     const [inputText, setInputText] = React.useState<string>(
       selectedValue ? formatDateLabel(selectedValue) : ''
@@ -134,6 +144,7 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
 
     React.useEffect(() => {
       if (!open) return
+      if (inline) return
       const handleClickOutside = (event: MouseEvent) => {
         if (!containerRef.current) return
         if (!containerRef.current.contains(event.target as Node)) {
@@ -142,7 +153,14 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
       }
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
-    }, [open])
+    }, [open, inline])
+
+    React.useEffect(() => {
+      if (inline) return
+      if (autoOpen && !open && !disabled) {
+        setOpen(true)
+      }
+    }, [autoOpen, open, disabled, inline])
 
     const handleSelectDate = (date: Date) => {
       const next = toDateString(date)
@@ -165,7 +183,9 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
       }
 
       onValueChange?.(next)
-      setOpen(false)
+      if (!inline) {
+        setOpen(false)
+      }
     }
 
     const handleDayClick = (day: number) => {
@@ -318,53 +338,57 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
           {...restProps}
         />
 
-        <div
-          className={twMerge(
-            clsx(
-              'flex h-10 w-full items-center justify-between rounded-xl bg-surface-alt px-3 py-2',
-              'text-left',
-              'focus-within:outline-none focus-within:ring-2 focus-within:ring-primary-100',
-              'transition-all duration-200',
-              !disabled && 'cursor-text',
-              disabled && 'cursor-not-allowed',
-              error && 'bg-red-50 text-red-700 focus-within:ring-red-100'
-            )
-          )}
-          onClick={() => {
-            if (disabled) return
-            setOpen(true)
-          }}
-        >
-          <input
-            type="text"
-            disabled={disabled}
-            value={inputText}
-            onChange={handleInputChange}
-            onBlur={handleInputBlur}
-            onKeyDown={handleInputKeyDown}
-            placeholder={placeholder}
+        {!inline && (
+          <div
             className={twMerge(
               clsx(
-                'flex-1 bg-transparent text-sm',
-                'outline-none border-none',
-                !selectedValue && 'text-text-muted'
+                'flex h-10 w-full items-center justify-between rounded-xl bg-surface-alt px-3 py-2',
+                'text-left',
+                'focus-within:outline-none focus-within:ring-2 focus-within:ring-primary-100',
+                'transition-all duration-200',
+                !disabled && 'cursor-text',
+                disabled && 'cursor-not-allowed',
+                error && 'bg-red-50 text-red-700 focus-within:ring-red-100'
               )
             )}
-          />
-          <Icon
-          icon={Calendar}
-          variant="muted"
-          size="sm"
-          className={clsx('ml-2 transition-transform', open && 'rotate-180')}
-        />
-        </div>
+            onClick={() => {
+              if (disabled) return
+              setOpen(true)
+            }}
+          >
+            <input
+              type="text"
+              disabled={disabled}
+              value={inputText}
+              onChange={handleInputChange}
+              onBlur={handleInputBlur}
+              onKeyDown={handleInputKeyDown}
+              placeholder={placeholder}
+              className={twMerge(
+                clsx(
+                  'flex-1 bg-transparent text-sm',
+                  'outline-none border-none',
+                  !selectedValue && 'text-text-muted'
+                )
+              )}
+            />
+            <Icon
+              icon={Calendar}
+              variant="muted"
+              size="sm"
+              className={clsx('ml-2 transition-transform', open && 'rotate-180')}
+            />
+          </div>
+        )}
 
-        {open && !disabled && (
+        {(open || inline) && !disabled && (
           <div
             className={twMerge(
               clsx(
                 // Dropdown bám theo input
-                'absolute left-0 z-50 mt-1 w-full rounded-xl bg-surface shadow-lg outline-none',
+                inline
+                  ? 'relative w-full rounded-xl bg-transparent shadow-none outline-none'
+                  : 'absolute left-0 z-50 mt-1 w-full rounded-xl bg-surface shadow-lg outline-none',
                 'max-h-[80vh] overflow-hidden sm:min-w-[260px] sm:max-w-sm'
               )
             )}
