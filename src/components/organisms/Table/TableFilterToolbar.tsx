@@ -3,7 +3,7 @@ import { clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import { Plus } from 'lucide-react'
 import { Icon } from '../../atoms/Icon/Icon'
-import { Chip } from '../../atoms/Chip/Chip'
+import { Chip, type ChipVariant } from '../../atoms/Chip/Chip'
 import { Input } from '../../atoms/Input/Input'
 import { DatePicker } from '../../atoms/DatePicker/DatePicker'
 import { DatetimePicker } from '../../atoms/DatetimePicker/DatetimePicker'
@@ -74,11 +74,26 @@ type TableFilterToolbarI18nInput = Partial<Omit<TableFilterToolbarI18n, 'operato
   operators?: Partial<TableFilterToolbarI18n['operators']>
 }
 
+export type TableFilterToolbarChipGroup = 'filter' | 'sort'
+
+export type TableFilterToolbarChipVariantConfig = {
+  active?: ChipVariant
+  inactive?: ChipVariant
+}
+
 export interface TableFilterToolbarProps extends React.HTMLAttributes<HTMLDivElement> {
   fields: TableFilterFieldDefinition[]
   filters: TableFilterInstance[]
   onFiltersChange: (filters: TableFilterInstance[]) => void
   i18n?: TableFilterToolbarI18nInput
+  chipVariants?: Partial<Record<TableFilterToolbarChipGroup, TableFilterToolbarChipVariantConfig>>
+  getChipVariant?: (params: {
+    group: TableFilterToolbarChipGroup
+    field: TableFilterFieldDefinition
+    filter: TableFilterInstance
+    hasValue: boolean
+  }) => ChipVariant | undefined
+  addButtonChipVariant?: ChipVariant
   renderFieldEditor?: (params: {
     field: TableFilterFieldDefinition
     filter: TableFilterInstance
@@ -123,6 +138,11 @@ const defaultI18n: TableFilterToolbarI18n = {
   },
 }
 
+const defaultChipVariants: Record<TableFilterToolbarChipGroup, TableFilterToolbarChipVariantConfig> = {
+  filter: { active: 'primary', inactive: 'outline' },
+  sort: { active: 'info', inactive: 'outline' },
+}
+
 export const TableFilterToolbar = React.forwardRef<HTMLDivElement, TableFilterToolbarProps>(
   (
     {
@@ -131,6 +151,9 @@ export const TableFilterToolbar = React.forwardRef<HTMLDivElement, TableFilterTo
       filters,
       onFiltersChange,
       i18n: i18nProp,
+      chipVariants,
+      getChipVariant,
+      addButtonChipVariant,
       renderFieldEditor,
       formatValue,
       ...props
@@ -310,6 +333,25 @@ export const TableFilterToolbar = React.forwardRef<HTMLDivElement, TableFilterTo
     )
 
     const effectiveRenderFieldEditor = renderFieldEditor ?? defaultRenderFieldEditor
+
+     const resolveChipVariant = React.useCallback(
+       (params: {
+         group: TableFilterToolbarChipGroup
+         field: TableFilterFieldDefinition
+         filter: TableFilterInstance
+         hasValue: boolean
+       }): ChipVariant => {
+         const fromCallback = getChipVariant?.(params)
+         if (fromCallback) return fromCallback
+
+         const groupConfig = chipVariants?.[params.group]
+         const fallbackConfig = defaultChipVariants[params.group]
+         return params.hasValue
+           ? (groupConfig?.active ?? fallbackConfig.active ?? 'primary')
+           : (groupConfig?.inactive ?? fallbackConfig.inactive ?? 'outline')
+       },
+       [chipVariants, getChipVariant]
+     )
 
     const isMultiOptionsField = (field: TableFilterFieldDefinition) => {
       const type = getType(field)
@@ -860,6 +902,7 @@ export const TableFilterToolbar = React.forwardRef<HTMLDivElement, TableFilterTo
 
         return {
           id: filter.fieldId,
+          group: 'filter' as const,
           label: field.label,
           valueLabel: displayValueLabel,
           field,
@@ -868,6 +911,7 @@ export const TableFilterToolbar = React.forwardRef<HTMLDivElement, TableFilterTo
       })
       .filter(Boolean) as {
       id: string
+      group: TableFilterToolbarChipGroup
       label: string
       valueLabel: string
       field: TableFilterFieldDefinition
@@ -899,7 +943,12 @@ export const TableFilterToolbar = React.forwardRef<HTMLDivElement, TableFilterTo
             <div key={chip.id} className="relative inline-block">
               <Chip
                 size="sm"
-                variant={hasValue ? 'primary' : 'outline'}
+                variant={resolveChipVariant({
+                  group: chip.group,
+                  field: chip.field,
+                  filter: chip.filter,
+                  hasValue,
+                })}
                 label={
                   chip.valueLabel ? `${chip.label}: ${chip.valueLabel}` : chip.label
                 }
@@ -953,6 +1002,7 @@ export const TableFilterToolbar = React.forwardRef<HTMLDivElement, TableFilterTo
               label={i18n.buttonLabel}
               startIcon={<Icon icon={Plus} size="sm" />}
               className="inline-flex items-center gap-1"
+              variant={addButtonChipVariant}
               onClick={() => setIsAddMenuOpen((open) => !open)}
             />
             {isAddMenuOpen && (
