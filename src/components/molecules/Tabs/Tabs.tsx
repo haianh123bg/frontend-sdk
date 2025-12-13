@@ -18,9 +18,10 @@ export interface TabsProps {
   onChange?: (tabId: string) => void
   className?: string
   noBorder?: boolean
+  noDivider?: boolean
 }
 
-export const Tabs: React.FC<TabsProps> = ({ tabs, defaultTab, onChange, className, noBorder }) => {
+export const Tabs: React.FC<TabsProps> = ({ tabs, defaultTab, onChange, className, noBorder, noDivider }) => {
   const dispatch = useDispatchAction()
   const [activeTab, setActiveTab] = React.useState(defaultTab || tabs[0]?.id)
 
@@ -36,7 +37,7 @@ export const Tabs: React.FC<TabsProps> = ({ tabs, defaultTab, onChange, classNam
     <div className={twMerge(clsx('w-full', className))}>
       <div
         className={twMerge(
-          clsx('flex gap-1', !noBorder && 'border-b border-slate-200')
+          clsx('flex gap-1', !noBorder && !noDivider && 'border-b border-slate-200')
         )}
       >
         {tabs.map((tab) => (
@@ -49,7 +50,7 @@ export const Tabs: React.FC<TabsProps> = ({ tabs, defaultTab, onChange, classNam
                 'px-4 py-2 text-sm font-medium transition-all rounded-t-lg',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
                 activeTab === tab.id
-                  ? noBorder
+                  ? noBorder || noDivider
                     ? 'bg-surface text-primary-500'
                     : 'bg-surface text-primary-500 border-b-2 border-primary-500'
                   : 'text-text-secondary hover:text-text-primary hover:bg-slate-50',

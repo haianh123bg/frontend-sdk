@@ -104,8 +104,8 @@ export const MenuDropdown: React.FC<MenuDropdownProps> = ({
       className={twMerge(basePositionClasses, className)}
       style={{ ...offsetStyle, ...positionStyle }}
     >
-      <div className="rounded-2xl bg-surface text-sm shadow-lg">
-        <div className="flex w-full items-center justify-between rounded-2xl px-4 py-2 text-xs text-text-muted">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-surface text-sm shadow-lg">
+        <div className="flex w-full items-center justify-between rounded-t-2xl px-4 py-2 text-xs text-text-muted">
           <span className="truncate">{label}</span>
           <div className="flex items-center gap-2">
             {headerRight}
@@ -118,7 +118,7 @@ export const MenuDropdown: React.FC<MenuDropdownProps> = ({
 
             if (renderOption) {
               return (
-                <div key={option.value} className="px-1 py-0.5">
+                <div key={option.value} className="mx-1 my-0.5 overflow-hidden rounded-xl">
                   {renderOption(option, { selected: isSelected })}
                 </div>
               )
@@ -135,7 +135,7 @@ export const MenuDropdown: React.FC<MenuDropdownProps> = ({
                 }}
                 className={twMerge(
                   clsx(
-                    'flex w-full items-center px-4 py-1.5 text-left text-sm',
+                    'mx-1 my-0.5 flex w-full items-center rounded-xl px-4 py-1.5 text-left text-sm',
                     !option.disabled && 'cursor-pointer hover:bg-slate-50',
                     option.disabled && 'cursor-not-allowed text-text-muted',
                     isSelected && 'font-medium text-text-primary'

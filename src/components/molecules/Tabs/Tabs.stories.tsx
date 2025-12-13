@@ -20,6 +20,18 @@ type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}
 
+export const NoDivider: Story = {
+  args: {
+    noDivider: true,
+  },
+}
+
+export const NoBorder: Story = {
+  args: {
+    noBorder: true,
+  },
+}
+
 export const WithDisabledTab: Story = {
   args: {
     tabs: [
