@@ -18,6 +18,49 @@ const sampleFilters: ActiveFilterChip[] = [
   { id: 'search', label: 'Search', value: 'alice' },
 ]
 
+const docsSourceCodeDefault = `import { useState } from 'react'
+import { ActiveFilters, type ActiveFilterChip } from './ActiveFilters'
+
+const sampleFilters: ActiveFilterChip[] = [
+  { id: 'status', label: 'Status', value: 'active' },
+  { id: 'role', label: 'Role', value: 'Admin' },
+  { id: 'search', label: 'Search', value: 'alice' },
+]
+
+export const Example = () => {
+  const [filters, setFilters] = useState<ActiveFilterChip[]>(sampleFilters)
+
+  return (
+    <ActiveFilters
+      filters={filters}
+      onRemoveFilter={(id) => setFilters((prev) => prev.filter((f) => f.id !== id))}
+      onClearAll={() => setFilters([])}
+    />
+  )
+}`
+
+const docsSourceCodeNoBackground = `import { useState } from 'react'
+import { ActiveFilters, type ActiveFilterChip } from './ActiveFilters'
+
+const sampleFilters: ActiveFilterChip[] = [
+  { id: 'status', label: 'Status', value: 'active' },
+  { id: 'role', label: 'Role', value: 'Admin' },
+  { id: 'search', label: 'Search', value: 'alice' },
+]
+
+export const Example = () => {
+  const [filters, setFilters] = useState<ActiveFilterChip[]>(sampleFilters)
+
+  return (
+    <ActiveFilters
+      filters={filters}
+      noBackground
+      onRemoveFilter={(id) => setFilters((prev) => prev.filter((f) => f.id !== id))}
+      onClearAll={() => setFilters([])}
+    />
+  )
+}`
+
 export const Default: Story = {
   render: () => {
     const [filters, setFilters] = useState<ActiveFilterChip[]>(sampleFilters)
@@ -29,6 +72,14 @@ export const Default: Story = {
         onClearAll={() => setFilters([])}
       />
     )
+  },
+  parameters: {
+    docs: {
+      source: {
+        code: docsSourceCodeDefault,
+        language: 'tsx',
+      },
+    },
   },
 }
 
@@ -49,5 +100,13 @@ export const NoBackground: Story = {
         />
       </div>
     )
+  },
+  parameters: {
+    docs: {
+      source: {
+        code: docsSourceCodeNoBackground,
+        language: 'tsx',
+      },
+    },
   },
 }

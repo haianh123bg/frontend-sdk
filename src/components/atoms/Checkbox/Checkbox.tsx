@@ -9,13 +9,30 @@ export interface CheckboxProps extends Omit<React.InputHTMLAttributes<HTMLInputE
   label?: string
   error?: boolean
   variant?: 'primary' | 'success' | 'warning' | 'danger' | 'info'
+  indeterminate?: boolean
 }
 
 export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
-  ({ className, label, error, variant = 'primary', onChange, id, ...props }, ref) => {
+  ({ className, label, error, variant = 'primary', indeterminate, onChange, id, ...props }, ref) => {
     const dispatch = useDispatchAction()
     const generatedId = React.useId()
     const checkboxId = id || generatedId
+    const localRef = React.useRef<HTMLInputElement | null>(null)
+
+    React.useEffect(() => {
+      if (!localRef.current) return
+      localRef.current.indeterminate = !!indeterminate
+    }, [indeterminate])
+
+    const setRefs = (node: HTMLInputElement | null) => {
+      localRef.current = node
+      if (!ref) return
+      if (typeof ref === 'function') {
+        ref(node)
+        return
+      }
+      ;(ref as React.MutableRefObject<HTMLInputElement | null>).current = node
+    }
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       dispatch(
@@ -43,7 +60,7 @@ export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
           <label htmlFor={checkboxId} className="flex items-center gap-2 cursor-pointer select-none">
             <span className="relative inline-flex items-center justify-center">
               <input
-                ref={ref}
+                ref={setRefs}
                 type="checkbox"
                 id={checkboxId}
                 className={twMerge(
@@ -73,14 +90,27 @@ export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
                 className="pointer-events-none absolute h-3 w-3 text-white opacity-0 transition-opacity duration-150 peer-checked:opacity-100"
                 aria-hidden="true"
               >
-                <polyline
-                  points="3.5 8.5 6.5 11.5 12.5 4.5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
+                {indeterminate ? (
+                  <line
+                    x1="4"
+                    y1="8"
+                    x2="12"
+                    y2="8"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                  />
+                ) : (
+                  <polyline
+                    points="3.5 8.5 6.5 11.5 12.5 4.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                )}
               </svg>
             </span>
             {label && (
@@ -94,7 +124,7 @@ export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
     return (
       <div className="flex items-center gap-2">
         <input
-          ref={ref}
+          ref={setRefs}
           type="checkbox"
           id={checkboxId}
           className={twMerge(

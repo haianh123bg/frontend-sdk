@@ -180,6 +180,15 @@ export const TableFilterToolbar = React.forwardRef<HTMLDivElement, TableFilterTo
     const getRecordMeta = (field: TableFilterFieldDefinition) =>
       ((field.meta ?? {}) as Record<string, unknown>)
 
+    const getChipGroupFromField = React.useCallback(
+      (field: TableFilterFieldDefinition): TableFilterToolbarChipGroup => {
+        const meta = getRecordMeta(field)
+        const group = meta.chipGroup ?? meta.group
+        return group === 'sort' ? 'sort' : 'filter'
+      },
+      []
+    )
+
     const isNonEmptyString = (value: unknown): value is string =>
       typeof value === 'string' && value.trim().length > 0
 
@@ -854,7 +863,15 @@ export const TableFilterToolbar = React.forwardRef<HTMLDivElement, TableFilterTo
 
     const handleClearAll = () => {
       if (!filters.length) return
-      onFiltersChange([])
+
+      const next = filters.filter((f) => {
+        const field = fields.find((item) => item.id === f.fieldId)
+        if (!field) return false
+        return getChipGroupFromField(field) === 'sort'
+      })
+
+      if (next.length === filters.length) return
+      onFiltersChange(next)
       setActiveFieldId(null)
     }
 
@@ -870,7 +887,7 @@ export const TableFilterToolbar = React.forwardRef<HTMLDivElement, TableFilterTo
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [])
 
-    const filteredFields = fields
+    const filteredFields = fields.filter((field) => getChipGroupFromField(field) === 'filter')
 
     const chips = filters
       .map((filter) => {
@@ -902,7 +919,7 @@ export const TableFilterToolbar = React.forwardRef<HTMLDivElement, TableFilterTo
 
         return {
           id: filter.fieldId,
-          group: 'filter' as const,
+          group: getChipGroupFromField(field),
           label: field.label,
           valueLabel: displayValueLabel,
           field,
@@ -1045,10 +1062,21 @@ export const TableFilterToolbar = React.forwardRef<HTMLDivElement, TableFilterTo
             )}
           </div>
 
-          {filters.length > 0 && (
+          {filters.some((f) => {
+            const field = fields.find((item) => item.id === f.fieldId)
+            if (!field) return true
+            return getChipGroupFromField(field) === 'filter'
+          }) && (
             <div className="flex items-center gap-2 text-[11px] text-text-muted">
               <span>
-                {filters.length} {i18n.appliedFiltersLabel}
+                {
+                  filters.filter((f) => {
+                    const field = fields.find((item) => item.id === f.fieldId)
+                    if (!field) return true
+                    return getChipGroupFromField(field) === 'filter'
+                  }).length
+                }{' '}
+                {i18n.appliedFiltersLabel}
               </span>
               <button
                 type="button"

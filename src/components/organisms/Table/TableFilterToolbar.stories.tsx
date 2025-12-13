@@ -67,6 +67,62 @@ const i18n = {
   },
 } as const
 
+const docsSourceCode = `import * as React from 'react'
+import { Users, Flag, Hash, Calendar, Clock, ToggleRight, Tags } from 'lucide-react'
+import { TableFilterToolbar, type TableFilterFieldDefinition, type TableFilterInstance } from './TableFilterToolbar'
+
+const statusOptions = [
+  { label: 'To-do', value: 'todo' },
+  { label: 'In progress', value: 'in_progress' },
+  { label: 'Done', value: 'done' },
+]
+
+const assigneeOptions = [
+  { label: 'Hải Anh', value: 'hai-anh' },
+  { label: 'Nguyễn Văn A', value: 'nguyen-a' },
+  { label: 'Trần Thị B', value: 'tran-b' },
+]
+
+const tagOptions = [
+  { label: 'Bug', value: 'bug' },
+  { label: 'Feature', value: 'feature' },
+  { label: 'Chore', value: 'chore' },
+]
+
+const i18n = {
+  buttonLabel: 'Bộ lọc',
+  searchPlaceholder: 'Lọc theo trường...',
+  emptyLabel: 'Không tìm thấy trường phù hợp',
+  appliedFiltersLabel: 'bộ lọc đang áp dụng',
+  clearAllLabel: 'Xoá tất cả',
+  yesLabel: 'Có',
+  noLabel: 'Không',
+} as const
+
+export const Example: React.FC = () => {
+  const [filters, setFilters] = React.useState<TableFilterInstance[]>([])
+
+  const fields: TableFilterFieldDefinition[] = [
+    { id: 'status', label: 'Status', icon: Flag, type: 'select', options: statusOptions },
+    { id: 'assignee', label: 'Assignee', icon: Users, type: 'multi_select', options: assigneeOptions, meta: { multiple: true } },
+    { id: 'tags', label: 'Tags', icon: Tags, type: 'multi', options: tagOptions },
+    { id: 'active', label: 'Active', icon: ToggleRight, type: 'boolean' },
+    { id: 'amount', label: 'Amount', icon: Hash, type: 'number' },
+    { id: 'created_date', label: 'Created date', icon: Calendar, type: 'date' },
+    { id: 'due_datetime', label: 'Due datetime', icon: Clock, type: 'datetime' },
+  ]
+
+  return (
+    <TableFilterToolbar
+      fields={fields}
+      filters={filters}
+      onFiltersChange={setFilters}
+      i18n={i18n}
+      formatValue={(field, value) => String(value ?? '')}
+    />
+  )
+}`
+
 export const Basic: Story = {
   args: {
     fields: [],
@@ -213,5 +269,13 @@ export const Basic: Story = {
         </pre>
       </div>
     )
+  },
+  parameters: {
+    docs: {
+      source: {
+        code: docsSourceCode,
+        language: 'tsx',
+      },
+    },
   },
 }

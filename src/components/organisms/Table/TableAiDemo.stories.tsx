@@ -18,6 +18,45 @@ interface UserRow {
   role: string
 }
 
+const docsSourceCode = `import * as React from 'react'
+import type { SortingState } from '@tanstack/react-table'
+import { Table, type TableColumn } from './Table'
+
+type UserRow = {
+  id: string
+  name: string
+  email: string
+  role: string
+}
+
+const data: UserRow[] = [
+  { id: '1', name: 'Alice Johnson', email: 'alice@example.com', role: 'Admin' },
+  { id: '2', name: 'Bob Smith', email: 'bob@example.com', role: 'Editor' },
+]
+
+const columns: TableColumn<UserRow>[] = [
+  { key: 'name', label: 'Name', sortable: true },
+  { key: 'email', label: 'Email', sortable: true },
+  { key: 'role', label: 'Role', sortable: true },
+]
+
+export const Example = () => {
+  const [sorting, setSorting] = React.useState<SortingState>([])
+
+  return (
+    <Table
+      columns={columns}
+      data={data}
+      rowKey={(row) => row.id}
+      pageSize={3}
+      pageSizeOptions={[3, 5, 10]}
+      showSortIndicator
+      sorting={sorting}
+      onSortingChange={setSorting}
+    />
+  )
+}`
+
 const data: UserRow[] = [
   { id: '1', name: 'Alice Johnson', email: 'alice@example.com', role: 'Admin' },
   { id: '2', name: 'Bob Smith', email: 'bob@example.com', role: 'Editor' },
@@ -193,4 +232,12 @@ type Story = StoryObj<typeof TableAiDemoShell>
 
 export const Default: Story = {
   render: () => <TableAiDemoShell />,
+  parameters: {
+    docs: {
+      source: {
+        code: docsSourceCode,
+        language: 'tsx',
+      },
+    },
+  },
 }

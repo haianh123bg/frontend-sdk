@@ -4,7 +4,7 @@ import { clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import { useDispatchAction } from '../../../bus/hooks'
 import { EventType } from '../../../events/types'
-import { Scroll } from '../Scroll/Scroll'
+import { Scroll, type ScrollProps } from '../Scroll/Scroll'
 
 export interface SelectOption {
   label: string
@@ -23,12 +23,15 @@ export interface SelectProps
   defaultValue?: string
   compact?: boolean
   hideCaret?: boolean
+  mode?: 'filled' | 'ghost'
   variant?: 'filled' | 'ghost'
+  dropdownPlacement?: 'bottom' | 'top'
   /**
    * Khi bật autoOpen, dropdown sẽ tự mở khi component render và không bị disabled.
    * Hữu ích cho các trường hợp muốn hiển thị menu ngay sau khi người dùng trigger từ bên ngoài.
    */
   autoOpen?: boolean
+  dropdownScrollProps?: Omit<ScrollProps, 'direction' | 'children'>
   onValueChange?: (value: string) => void
 }
 
@@ -45,8 +48,11 @@ export const Select = React.forwardRef<HTMLInputElement, SelectProps>(
       defaultValue = '',
       compact = false,
       hideCaret = false,
-      variant = 'filled',
+      mode,
+      variant: variantProp = 'filled',
+      dropdownPlacement = 'bottom',
       autoOpen = false,
+      dropdownScrollProps,
       onValueChange,
       name,
       id,
@@ -62,6 +68,13 @@ export const Select = React.forwardRef<HTMLInputElement, SelectProps>(
 
     const selectedValue = value ?? internalValue
     const selectedOption = options.find((o) => o.value === selectedValue)
+
+    const variant = mode ?? variantProp
+
+    const dropdownScrollAutoHide = dropdownScrollProps?.autoHide ?? true
+    const dropdownScrollClassName = dropdownScrollProps?.className
+    const { autoHide: _autoHide, className: _className, ...dropdownScrollRest } =
+      dropdownScrollProps ?? {}
 
     const handleSelect = (next: string) => {
       if (disabled) return
@@ -158,13 +171,19 @@ export const Select = React.forwardRef<HTMLInputElement, SelectProps>(
           <div
             className={twMerge(
               clsx(
-                'absolute z-50 mt-1 rounded-xl bg-surface shadow-lg outline-none overflow-hidden',
+                'absolute z-50 rounded-xl bg-surface shadow-lg outline-none overflow-hidden',
+                dropdownPlacement === 'top' ? 'bottom-full mb-1' : 'mt-1',
                 // giữ tối thiểu bằng trigger nhưng cho phép nở theo nội dung
                 'min-w-full w-max max-w-[min(420px,calc(100vw-24px))]'
               )
             )}
           >
-            <Scroll direction="vertical" className="max-h-60 py-1 text-sm">
+            <Scroll
+              direction="vertical"
+              autoHide={dropdownScrollAutoHide}
+              className={twMerge('max-h-60 py-1 text-sm', dropdownScrollClassName)}
+              {...dropdownScrollRest}
+            >
               <ul>
                 {placeholder && (
                   <li className="px-3 py-2 text-text-muted">

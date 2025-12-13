@@ -104,7 +104,7 @@ export const MenuDropdown: React.FC<MenuDropdownProps> = ({
       className={twMerge(basePositionClasses, className)}
       style={{ ...offsetStyle, ...positionStyle }}
     >
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-surface text-sm shadow-lg">
+      <div className="rounded-2xl border border-slate-200 bg-surface text-sm shadow-lg">
         <div className="flex w-full items-center justify-between rounded-t-2xl px-4 py-2 text-xs text-text-muted">
           <span className="truncate">{label}</span>
           <div className="flex items-center gap-2">
