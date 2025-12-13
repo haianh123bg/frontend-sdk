@@ -47,6 +47,11 @@
       "import": "./dist/display/index.js",
       "require": "./dist/display/index.cjs"
     },
+    "./animation": {
+      "types": "./dist/animation/index.d.ts",
+      "import": "./dist/animation/index.js",
+      "require": "./dist/animation/index.cjs"
+    },
     "./styles.css": "./dist/style.css"
   },
   "files": [
@@ -65,7 +70,8 @@
   },
   "peerDependencies": {
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "framer-motion": "^11.0.0"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.0.7",
@@ -108,6 +114,7 @@
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
     "eslint-plugin-storybook": "^0.8.0",
+    "framer-motion": "^11.0.0",
     "jsdom": "^24.0.0",
     "postcss": "^8.4.35",
     "prettier": "^3.2.5",

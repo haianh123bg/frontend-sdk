@@ -16,6 +16,7 @@ const entries = {
   feedback: path.resolve(__dirname, 'src/feedback/index.ts'),
   navigation: path.resolve(__dirname, 'src/navigation/index.ts'),
   display: path.resolve(__dirname, 'src/display/index.ts'),
+  animation: path.resolve(__dirname, 'src/animation/index.ts'),
 }
 
 export default defineConfig({
@@ -34,12 +35,12 @@ export default defineConfig({
       formats: ['es', 'cjs'],
     },
     rollupOptions: {
-      external: ['react', 'react-dom', 'tailwindcss'],
+      external: ['react', 'react-dom', 'tailwindcss', 'framer-motion'],
       input: entries,
       output: [
         {
           format: 'es',
-          entryFileNames: ({ name }) => `${name}.js`,
+          entryFileNames: ({ name }) => (name === 'index' ? 'index.js' : `${name}/index.js`),
           chunkFileNames: 'chunks/[name]-[hash].js',
           globals: {
             react: 'React',
@@ -49,7 +50,7 @@ export default defineConfig({
         },
         {
           format: 'cjs',
-          entryFileNames: ({ name }) => `${name}.cjs`,
+          entryFileNames: ({ name }) => (name === 'index' ? 'index.cjs' : `${name}/index.cjs`),
           chunkFileNames: 'chunks/[name]-[hash].cjs',
           exports: 'named',
           globals: {

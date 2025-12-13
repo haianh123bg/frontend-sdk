@@ -7,6 +7,7 @@ export * from './bus/hooks'
 export * from './events/types'
 export * from './styles/tokens'
 export * from './core'
+export * from './animation'
 
 export {
   Box,
