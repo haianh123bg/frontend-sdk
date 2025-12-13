@@ -2,6 +2,7 @@
 import * as React from 'react'
 import { clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { useDispatchAction } from '../../../bus/hooks'
 import { EventType } from '../../../events/types'
 
@@ -29,30 +30,55 @@ export const SplitPane = React.forwardRef<HTMLDivElement, SplitPaneProps>(
   ) => {
     const dispatch = useDispatchAction()
     const containerRef = React.useRef<HTMLDivElement | null>(null)
-    const [ratio, setRatio] = React.useState(initialRatio)
+    const [containerSize, setContainerSize] = React.useState(0)
 
     React.useImperativeHandle(ref, () => containerRef.current as HTMLDivElement)
 
-    const handleMouseMove = React.useCallback(
-      (event: MouseEvent) => {
-        const container = containerRef.current
-        if (!container) return
-        const rect = container.getBoundingClientRect()
-        let nextRatio = ratio
-        if (direction === 'horizontal') {
-          const x = event.clientX - rect.left
-          nextRatio = Math.min(Math.max(x / rect.width, 0), 1)
-          const primaryWidth = rect.width * nextRatio
-          const secondaryWidth = rect.width * (1 - nextRatio)
-          if (primaryWidth < minPrimary || secondaryWidth < minSecondary) return
-        } else {
-          const y = event.clientY - rect.top
-          nextRatio = Math.min(Math.max(y / rect.height, 0), 1)
-          const primaryHeight = rect.height * nextRatio
-          const secondaryHeight = rect.height * (1 - nextRatio)
-          if (primaryHeight < minPrimary || secondaryHeight < minSecondary) return
+    React.useLayoutEffect(() => {
+      const el = containerRef.current
+      if (!el) return
+
+      const updateSize = () => {
+        const rect = el.getBoundingClientRect()
+        setContainerSize(direction === 'horizontal' ? rect.width : rect.height)
+      }
+
+      updateSize()
+
+      if (typeof ResizeObserver === 'undefined') {
+        window.addEventListener('resize', updateSize)
+        return () => {
+          window.removeEventListener('resize', updateSize)
         }
-        setRatio(nextRatio)
+      }
+
+      const ro = new ResizeObserver(() => updateSize())
+      ro.observe(el)
+
+      return () => {
+        ro.disconnect()
+      }
+    }, [direction])
+
+    const [primary, secondary] = React.Children.toArray(children)
+
+    const isHorizontal = direction === 'horizontal'
+
+    const normalizedRatio = Math.min(Math.max(initialRatio, 0), 1)
+    const primaryDefaultSize = normalizedRatio * 100
+
+    let minPrimaryPct = containerSize > 0 ? (minPrimary / containerSize) * 100 : 0
+    let minSecondaryPct = containerSize > 0 ? (minSecondary / containerSize) * 100 : 0
+    minPrimaryPct = Math.min(Math.max(minPrimaryPct, 0), 100)
+    minSecondaryPct = Math.min(Math.max(minSecondaryPct, 0), 100)
+    if (minPrimaryPct + minSecondaryPct > 100) {
+      minPrimaryPct = 0
+      minSecondaryPct = 0
+    }
+
+    const handleLayout = React.useCallback(
+      (sizes: number[]) => {
+        const nextRatio = (sizes?.[0] ?? primaryDefaultSize) / 100
         onResize?.(nextRatio)
         dispatch(
           EventType.UI_CHANGE,
@@ -60,59 +86,45 @@ export const SplitPane = React.forwardRef<HTMLDivElement, SplitPaneProps>(
           { meta: { component: 'SplitPane' } }
         )
       },
-      [direction, minPrimary, minSecondary, onResize, ratio, dispatch]
+      [dispatch, onResize, primaryDefaultSize]
     )
-
-    const stopDragging = React.useCallback(() => {
-      window.removeEventListener('mousemove', handleMouseMove)
-      window.removeEventListener('mouseup', stopDragging)
-    }, [handleMouseMove])
-
-    const startDragging = (event: React.MouseEvent<HTMLDivElement>) => {
-      event.preventDefault()
-      window.addEventListener('mousemove', handleMouseMove)
-      window.addEventListener('mouseup', stopDragging)
-    }
-
-    const [primary, secondary] = React.Children.toArray(children)
-
-    const isHorizontal = direction === 'horizontal'
-    const primaryStyle = isHorizontal ? { width: `${ratio * 100}%` } : { height: `${ratio * 100}%` }
-    const secondaryStyle = isHorizontal
-      ? { width: `${(1 - ratio) * 100}%` }
-      : { height: `${(1 - ratio) * 100}%` }
 
     return (
       <div
         ref={containerRef}
         className={twMerge(
           clsx(
-            'flex overflow-hidden rounded-2xl border border-slate-200 bg-surface',
-            isHorizontal ? 'flex-row' : 'flex-col',
+            'overflow-hidden rounded-2xl border border-slate-200 bg-surface',
             className
           )
         )}
         {...props}
       >
-        <div className={clsx('flex-1 overflow-auto', !isHorizontal && 'w-full')} style={primaryStyle}>
-          {primary}
-        </div>
-        <div
-          role="separator"
-          aria-orientation={direction}
-          onMouseDown={startDragging}
-          className={clsx(
-            'flex items-center justify-center transition-colors',
-            isHorizontal
-              ? 'w-1 cursor-col-resize hover:bg-primary-100'
-              : 'h-1 cursor-row-resize hover:bg-primary-100'
-          )}
+        <PanelGroup
+          direction={direction}
+          className={clsx('flex h-full w-full', isHorizontal ? 'flex-row' : 'flex-col')}
+          onLayout={handleLayout}
         >
-          <span className="block rounded-full bg-slate-300" style={isHorizontal ? { width: 2, height: '70%' } : { height: 2, width: '70%' }} />
-        </div>
-        <div className={clsx('flex-1 overflow-auto', !isHorizontal && 'w-full')} style={secondaryStyle}>
-          {secondary}
-        </div>
+          <Panel defaultSize={primaryDefaultSize} minSize={minPrimaryPct}>
+            <div className={clsx('h-full w-full overflow-auto', !isHorizontal && 'w-full')}>{primary}</div>
+          </Panel>
+          <PanelResizeHandle
+            className={clsx(
+              'flex items-center justify-center transition-colors',
+              isHorizontal
+                ? 'w-1 cursor-col-resize hover:bg-primary-100'
+                : 'h-1 cursor-row-resize hover:bg-primary-100'
+            )}
+          >
+            <span
+              className="block rounded-full bg-slate-300"
+              style={isHorizontal ? { width: 2, height: '70%' } : { height: 2, width: '70%' }}
+            />
+          </PanelResizeHandle>
+          <Panel defaultSize={100 - primaryDefaultSize} minSize={minSecondaryPct}>
+            <div className={clsx('h-full w-full overflow-auto', !isHorizontal && 'w-full')}>{secondary}</div>
+          </Panel>
+        </PanelGroup>
       </div>
     )
   }

@@ -70,6 +70,7 @@ export * from './components/atoms/Grid/Grid'
 export * from './components/atoms/Stack/Stack'
 export * from './components/atoms/Container/Container'
 export * from './components/organisms/PageLayout/PageLayout'
+export * from './components/molecules/SplitPane/SplitPane'
 
 // Typography Components
 export * from './components/atoms/Heading/Heading'
