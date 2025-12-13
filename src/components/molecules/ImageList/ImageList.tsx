@@ -2,7 +2,6 @@
 import * as React from 'react'
 import { clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import { Grid } from '../../atoms/Grid/Grid'
 import { Image, type ImageProps } from '../../atoms/Image/Image'
 
 export interface ImageListItem {
@@ -38,12 +37,28 @@ export const ImageList = React.forwardRef<HTMLDivElement, ImageListProps>(
   ) => {
     if (!items || items.length === 0) return null
 
+    const colsClassMap: Record<NonNullable<ImageListProps['cols']>, string> = {
+      1: 'grid-cols-1',
+      2: 'grid-cols-2',
+      3: 'grid-cols-3',
+      4: 'grid-cols-4',
+      5: 'grid-cols-5',
+      6: 'grid-cols-6',
+      12: 'grid-cols-12',
+    }
+
+    const gapClassMap: Record<NonNullable<ImageListProps['gap']>, string> = {
+      none: 'gap-0',
+      sm: 'gap-2',
+      md: 'gap-4',
+      lg: 'gap-6',
+      xl: 'gap-8',
+    }
+
     return (
-      <Grid
+      <div
         ref={ref}
-        cols={cols}
-        gap={gap}
-        className={twMerge(clsx('w-full', className))}
+        className={twMerge(clsx('grid w-full', colsClassMap[cols], gapClassMap[gap], className))}
         {...props}
       >
         {items.map((item, index) => {
@@ -75,7 +90,7 @@ export const ImageList = React.forwardRef<HTMLDivElement, ImageListProps>(
             </div>
           )
         })}
-      </Grid>
+      </div>
     )
   }
 )
