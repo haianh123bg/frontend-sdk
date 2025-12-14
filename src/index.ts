@@ -70,6 +70,7 @@ export * from './components/molecules/Checklist'
 export * from './components/atoms/Grid/Grid'
 export * from './components/atoms/Stack/Stack'
 export * from './components/atoms/Container/Container'
+export * from './components/atoms/Iframe/Iframe'
 export * from './components/organisms/PageLayout/PageLayout'
 export * from './components/molecules/SplitPane/SplitPane'
 
@@ -99,6 +100,8 @@ export * from './components/organisms/Table/Table'
 export * from './components/organisms/Table/TableToolbar'
 export * from './components/organisms/Table/ActiveFilters'
 export * from './components/organisms/Table/TableFilterToolbar'
+
+export * from './components/organisms/SpreadsheetGrid/SpreadsheetGrid'
 
 // Kanban Module
 export * from './kanban'
