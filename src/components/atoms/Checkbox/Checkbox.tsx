@@ -13,11 +13,13 @@ export interface CheckboxProps extends Omit<React.InputHTMLAttributes<HTMLInputE
 }
 
 export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
-  ({ className, label, error, variant = 'primary', indeterminate, onChange, id, ...props }, ref) => {
+  ({ className, label, error, variant = 'primary', indeterminate, onChange, id, checked, ...props }, ref) => {
     const dispatch = useDispatchAction()
     const generatedId = React.useId()
     const checkboxId = id || generatedId
     const localRef = React.useRef<HTMLInputElement | null>(null)
+
+    const checkedProps = checked !== undefined ? { checked } : {}
 
     React.useEffect(() => {
       if (!localRef.current) return
@@ -72,6 +74,7 @@ export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
                   )
                 )}
                 onChange={handleChange}
+                {...checkedProps}
                 {...props}
               />
               <span
@@ -80,6 +83,7 @@ export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
                   'transition-all duration-200',
                   'peer-checked:bg-[linear-gradient(135deg,#0EA5E9,#0284C7)]',
                   'peer-checked:border-transparent',
+                  indeterminate && 'bg-[linear-gradient(135deg,#0EA5E9,#0284C7)] border-transparent',
                   'peer-focus-visible:ring-2 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-primary-500',
                   'peer-disabled:opacity-50 peer-disabled:cursor-not-allowed',
                   error && 'border-red-500'
@@ -87,7 +91,11 @@ export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
               />
               <svg
                 viewBox="0 0 16 16"
-                className="pointer-events-none absolute h-3 w-3 text-white opacity-0 transition-opacity duration-150 peer-checked:opacity-100"
+                className={clsx(
+                  'pointer-events-none absolute h-3 w-3 text-white opacity-0 transition-opacity duration-150',
+                  'peer-checked:opacity-100',
+                  indeterminate && 'opacity-100'
+                )}
                 aria-hidden="true"
               >
                 {indeterminate ? (
@@ -139,6 +147,7 @@ export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
             )
           )}
           onChange={handleChange}
+          {...checkedProps}
           {...props}
         />
         {label && (
