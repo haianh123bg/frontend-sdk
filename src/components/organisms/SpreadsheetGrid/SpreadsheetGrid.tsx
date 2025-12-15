@@ -16,6 +16,7 @@ import {
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Scroll } from '../../atoms/Scroll/Scroll'
 import { Input } from '../../atoms/Input/Input'
+import { createFormulaRuntime, isFormulaError } from './formulaEngine'
 
 export type SpreadsheetGridAlign = 'left' | 'center' | 'right'
 
@@ -57,6 +58,7 @@ export interface SpreadsheetGridProps<T extends Record<string, any>> extends Rea
   rowNumberWidth?: number
 
   editable?: boolean
+  enableFormulas?: boolean
   onActiveCellChange?: (cell: SpreadsheetGridActiveCell | null) => void
 }
 
@@ -99,6 +101,7 @@ const setValueAtPath = (obj: any, path: string, value: any) => {
 }
 
 const coerceValue = (prevValue: unknown, text: string) => {
+  if (typeof text === 'string' && text.trim().startsWith('=')) return text
   if (typeof prevValue === 'number') {
     const n = Number(text)
     return Number.isFinite(n) ? n : text
@@ -129,6 +132,7 @@ export function SpreadsheetGrid<T extends Record<string, any>>({
   showRowNumbers = true,
   rowNumberWidth = 56,
   editable = true,
+  enableFormulas = false,
   onActiveCellChange,
   ...props
 }: SpreadsheetGridProps<T>) {
@@ -176,6 +180,29 @@ export function SpreadsheetGrid<T extends Record<string, any>>({
 
   const rowModel = table.getRowModel()
   const visibleColumns = table.getVisibleLeafColumns()
+
+  const colIndexById = React.useMemo(() => {
+    const map = new Map<string, number>()
+    visibleColumns.forEach((c, idx) => map.set(c.id, idx))
+    return map
+  }, [visibleColumns])
+
+  const formulaRuntime = React.useMemo(() => {
+    if (!enableFormulas) return null
+    const rowCount = rowModel.rows.length
+    const colCount = visibleColumns.length
+
+    return createFormulaRuntime({
+      rowCount,
+      colCount,
+      getCellRaw: (r, c) => {
+        const row = rowModel.rows[r]
+        const col = visibleColumns[c]
+        if (!row || !col) return undefined
+        return row.getValue(col.id)
+      },
+    })
+  }, [enableFormulas, rowModel.rows, visibleColumns])
 
   const rowVirtualizer = useVirtualizer({
     count: virtualized ? rowModel.rows.length : 0,
@@ -594,6 +621,23 @@ export function SpreadsheetGrid<T extends Record<string, any>>({
                             editingCell?.rowIndex === virtualRow.index &&
                             editingCell?.columnId === cell.column.id
 
+                          const rawValue = row.getValue(cell.column.id)
+                          const showFormulaValue =
+                            !!formulaRuntime &&
+                            typeof rawValue === 'string' &&
+                            rawValue.trim().startsWith('=')
+
+                          const computed = showFormulaValue
+                            ? (() => {
+                                const colIndex = colIndexById.get(cell.column.id)
+                                if (typeof colIndex !== 'number') return ''
+                                const v = formulaRuntime.evaluateCell(virtualRow.index, colIndex)
+                                if (isFormulaError(v)) return v.code
+                                if (v === null) return ''
+                                return String(v)
+                              })()
+                            : null
+
                           return (
                             <td
                               key={cell.id}
@@ -605,7 +649,8 @@ export function SpreadsheetGrid<T extends Record<string, any>>({
                                   align === 'center' && 'text-center',
                                   align === 'right' && 'text-right',
                                   isActive && 'bg-primary-50',
-                                  isActive && 'outline outline-2 outline-primary-500 outline-offset-[-2px]'
+                                  isActive && 'outline outline-2 outline-primary-500 outline-offset-[-2px]',
+                                  showFormulaValue && typeof computed === 'string' && computed.startsWith('#') && 'text-red-600'
                                 )
                               )}
                               onClick={() => setActiveCell({ rowIndex: virtualRow.index, columnId: cell.column.id })}
@@ -631,7 +676,7 @@ export function SpreadsheetGrid<T extends Record<string, any>>({
                                   }}
                                 />
                               ) : (
-                                flexRender(cell.column.columnDef.cell, cell.getContext())
+                                (showFormulaValue ? computed : flexRender(cell.column.columnDef.cell, cell.getContext()))
                               )}
                             </td>
                           )
@@ -667,6 +712,21 @@ export function SpreadsheetGrid<T extends Record<string, any>>({
 
                       const isEditing = editingCell?.rowIndex === rowIndex && editingCell?.columnId === cell.column.id
 
+                      const rawValue = row.getValue(cell.column.id)
+                      const showFormulaValue =
+                        !!formulaRuntime && typeof rawValue === 'string' && rawValue.trim().startsWith('=')
+
+                      const computed = showFormulaValue
+                        ? (() => {
+                            const colIndex = colIndexById.get(cell.column.id)
+                            if (typeof colIndex !== 'number') return ''
+                            const v = formulaRuntime.evaluateCell(rowIndex, colIndex)
+                            if (isFormulaError(v)) return v.code
+                            if (v === null) return ''
+                            return String(v)
+                          })()
+                        : null
+
                       return (
                         <td
                           key={cell.id}
@@ -678,7 +738,8 @@ export function SpreadsheetGrid<T extends Record<string, any>>({
                               align === 'center' && 'text-center',
                               align === 'right' && 'text-right',
                               isActive && 'bg-primary-50',
-                              isActive && 'outline outline-2 outline-primary-500 outline-offset-[-2px]'
+                              isActive && 'outline outline-2 outline-primary-500 outline-offset-[-2px]',
+                              showFormulaValue && typeof computed === 'string' && computed.startsWith('#') && 'text-red-600'
                             )
                           )}
                           onClick={() => setActiveCell({ rowIndex, columnId: cell.column.id })}
@@ -704,7 +765,7 @@ export function SpreadsheetGrid<T extends Record<string, any>>({
                               }}
                             />
                           ) : (
-                            flexRender(cell.column.columnDef.cell, cell.getContext())
+                            (showFormulaValue ? computed : flexRender(cell.column.columnDef.cell, cell.getContext()))
                           )}
                         </td>
                       )

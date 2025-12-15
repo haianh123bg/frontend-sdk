@@ -11,6 +11,14 @@ type DemoRow = {
   active: boolean
 }
 
+type FormulaRow = {
+  id: string
+  a: any
+  b: any
+  c: any
+  d: any
+}
+
 const createData = (count: number): DemoRow[] =>
   Array.from({ length: count }, (_, i) => {
     const n = i + 1
@@ -85,6 +93,38 @@ export const Basic: Story = {
           virtualized={false}
           showSortIndicator
           resizableColumns
+        />
+      </div>
+    )
+  },
+}
+
+export const Formulas: Story = {
+  render: () => {
+    const [data, setData] = React.useState<FormulaRow[]>(() => [
+      { id: '1', a: 10, b: 5, c: '=A1+B1', d: '=IF(C1>10,"OK","LOW")' },
+      { id: '2', a: 7, b: 3, c: '=A2*B2', d: '=SUM(A1:A2)' },
+      { id: '3', a: 0, b: 0, c: '=SUM(A1:B2)', d: '=C1/C2' },
+    ])
+
+    const columns: ColumnDef<FormulaRow, any>[] = [
+      { accessorKey: 'a', header: 'A', size: 140 },
+      { accessorKey: 'b', header: 'B', size: 140 },
+      { accessorKey: 'c', header: 'C', size: 260 },
+      { accessorKey: 'd', header: 'D', size: 260 },
+    ]
+
+    return (
+      <div className="w-[min(1200px,calc(100vw-24px))]">
+        <SpreadsheetGrid
+          data={data}
+          columns={columns}
+          getRowId={(row) => row.id}
+          onDataChange={setData}
+          height={420}
+          virtualized={false}
+          resizableColumns
+          enableFormulas
         />
       </div>
     )
