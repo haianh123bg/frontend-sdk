@@ -21,6 +21,7 @@ export * from './MetricComparison'
 export * from './ParetoChart'
 export * from './TableAnalytics'
 export * from './GeographicMap'
+export * from './FinancialChart'
 
 // DTOs
 export * from './dto/area-chart.dto'
@@ -42,6 +43,7 @@ export * from './dto/metric-comparison.dto'
 export * from './dto/pareto-chart.dto'
 export * from './dto/table-analytics.dto'
 export * from './dto/geographic-map.dto'
+export * from './dto/financial-chart.dto'
 
 // AI control helpers
 export * from './aiControl'

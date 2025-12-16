@@ -1,7 +1,7 @@
 // File: src/charts/EChartsBase.tsx
 import * as React from 'react'
 import ReactECharts from 'echarts-for-react'
-import type { EChartsOption } from 'echarts'
+import type { ECharts, EChartsOption } from 'echarts'
 import { clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import { useDispatchAction } from '../bus/hooks'
@@ -14,9 +14,22 @@ export interface EChartsBaseProps {
   height?: number | string
   className?: string
   instanceId?: string
+  notMerge?: boolean
+  lazyUpdate?: boolean
+  extraEvents?: Record<string, (params: any) => void>
+  onChartReadyInstance?: (chart: ECharts) => void
 }
 
-export const EChartsBase: React.FC<EChartsBaseProps> = ({ option, height = 320, className, instanceId }) => {
+export const EChartsBase: React.FC<EChartsBaseProps> = ({
+  option,
+  height = 320,
+  className,
+  instanceId,
+  notMerge = true,
+  lazyUpdate = true,
+  extraEvents,
+  onChartReadyInstance,
+}) => {
   const dispatch = useDispatchAction()
   const autoInstanceIdRef = React.useRef<string | null>(null)
   if (!autoInstanceIdRef.current) {
@@ -36,13 +49,18 @@ export const EChartsBase: React.FC<EChartsBaseProps> = ({ option, height = 320, 
     chartRef,
   })
 
-  const handleChartReady = React.useCallback(() => {
-    dispatch(
-      'CHART.INIT',
-      { instanceId: effectiveInstanceId },
-      { meta: { component: 'EChart', instanceId: effectiveInstanceId } }
-    )
-  }, [dispatch, effectiveInstanceId])
+  const handleChartReady = React.useCallback(
+    (chart: ECharts) => {
+      dispatch(
+        'CHART.INIT',
+        { instanceId: effectiveInstanceId },
+        { meta: { component: 'EChart', instanceId: effectiveInstanceId } }
+      )
+
+      onChartReadyInstance?.(chart)
+    },
+    [dispatch, effectiveInstanceId, onChartReadyInstance]
+  )
 
   const handleDataZoom = React.useCallback(
     (params: any) => {
@@ -115,14 +133,31 @@ export const EChartsBase: React.FC<EChartsBaseProps> = ({ option, height = 320, 
     [dispatch, effectiveInstanceId]
   )
 
-  const onEvents = React.useMemo(
-    () => ({
+  const onEvents = React.useMemo(() => {
+    const base: Record<string, (params: any) => void> = {
       dataZoom: handleDataZoom,
       legendselectchanged: handleLegendSelectChanged,
       click: handleClick,
-    }),
-    [handleDataZoom, handleLegendSelectChanged, handleClick]
-  )
+    }
+
+    if (!extraEvents) return base
+
+    const merged: Record<string, (params: any) => void> = { ...extraEvents }
+    Object.keys(base).forEach((key) => {
+      const baseHandler = base[key]
+      const extraHandler = extraEvents[key]
+      if (extraHandler) {
+        merged[key] = (params: any) => {
+          baseHandler(params)
+          extraHandler(params)
+        }
+      } else {
+        merged[key] = baseHandler
+      }
+    })
+
+    return merged
+  }, [extraEvents, handleClick, handleDataZoom, handleLegendSelectChanged])
 
   return (
     <ReactECharts
@@ -130,8 +165,8 @@ export const EChartsBase: React.FC<EChartsBaseProps> = ({ option, height = 320, 
       option={option}
       style={style}
       className={twMerge(clsx('w-full', className))}
-      notMerge
-      lazyUpdate
+      notMerge={notMerge}
+      lazyUpdate={lazyUpdate}
       onChartReady={handleChartReady}
       onEvents={onEvents}
     />
