@@ -10,10 +10,11 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   size?: 'sm' | 'md' | 'lg'
   fullWidth?: boolean
   isLoading?: boolean
+  icon?: React.ReactNode
 }
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = 'primary', size = 'md', fullWidth, isLoading, onClick, children, ...props }, ref) => {
+  ({ className, variant = 'primary', size = 'md', fullWidth, isLoading, icon, onClick, children, ...props }, ref) => {
     const dispatch = useDispatchAction()
 
     const baseStyles = 'inline-flex items-center justify-center rounded-full font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:pointer-events-none disabled:opacity-50'
@@ -53,6 +54,11 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       >
         {isLoading && (
           <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+        )}
+        {icon && (
+          <span className={clsx('inline-flex shrink-0', children ? 'mr-2' : undefined)}>
+            {icon}
+          </span>
         )}
         {children}
       </button>

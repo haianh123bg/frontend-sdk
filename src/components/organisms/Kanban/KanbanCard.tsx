@@ -10,6 +10,11 @@ export interface KanbanCardProps {
   mappings: KanbanBoardProps['mappings']
   onClick?: () => void
   renderCard?: KanbanBoardProps['renderCard']
+  /**
+   * Danh sách các field name cần hiển thị trong phần body của card.
+   * Nếu không truyền, sẽ sử dụng mappings.cardMeta.
+   */
+  visibleFields?: string[]
 }
 
 const getFieldLabel = (schema: KanbanSchema, name: string): string => {
@@ -43,11 +48,19 @@ const renderMetaValue = (schema: KanbanSchema, name: string, value: any): React.
   return String(value)
 }
 
-export const KanbanCard: React.FC<KanbanCardProps> = ({ item, schema, mappings, onClick, renderCard }) => {
+export const KanbanCard: React.FC<KanbanCardProps> = ({
+  item,
+  schema,
+  mappings,
+  onClick,
+  renderCard,
+  visibleFields,
+}) => {
   const effectiveMappings = mappings ?? schema.defaultMappings ?? {}
   const titleField = effectiveMappings.cardTitle
   const subtitleField = effectiveMappings.cardSubtitle
-  const metaFields = effectiveMappings.cardMeta ?? []
+  // Ưu tiên visibleFields truyền vào, nếu không thì dùng mapping
+  const metaFields = visibleFields ?? effectiveMappings.cardMeta ?? []
   const avatarField = effectiveMappings.cardAvatar
   const tagsField = effectiveMappings.cardTags
 
@@ -120,20 +133,17 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ item, schema, mappings, 
         </div>
       </div>
       {metaFields.length > 0 && (
-        <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-text-muted">
+        <div className="mt-1 flex flex-col gap-1 text-[11px] text-text-muted">
           {metaFields.map((name) => {
             const value = getFieldValue(item, name)
             if (value == null || value === '') return null
             return (
-              <span
-                key={name}
-                className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5"
-              >
-                <span className="font-medium text-[10px] uppercase text-text-secondary">
-                  {getFieldLabel(schema, name)}
+              <div key={name} className="flex items-start justify-between gap-2">
+                <span className="shrink-0 font-medium text-text-secondary">
+                  {getFieldLabel(schema, name)}:
                 </span>
-                <span>{renderMetaValue(schema, name, value)}</span>
-              </span>
+                <span className="truncate text-right">{renderMetaValue(schema, name, value)}</span>
+              </div>
             )
           })}
         </div>

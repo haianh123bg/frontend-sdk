@@ -11,7 +11,7 @@ function getErrorMessage(errors: any, path?: string): string | undefined {
 
 export interface FormFieldProps<TFieldValues extends FieldValues = FieldValues>
   extends React.HTMLAttributes<HTMLDivElement> {
-  label?: string
+  label?: React.ReactNode
   error?: string
   required?: boolean
   htmlFor?: string

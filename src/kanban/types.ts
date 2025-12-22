@@ -196,4 +196,17 @@ export interface KanbanBoardProps {
   style?: React.CSSProperties
   orientation?: 'horizontal' | 'vertical'
   instanceId?: string
+  /**
+   * ID của item đang được chọn (controlled mode).
+   */
+  selectedId?: string | null
+  /**
+   * Callback khi selection thay đổi.
+   */
+  onSelectionChange?: (id: string | null) => void
+  /**
+   * Tắt tính năng mở modal chi tiết mặc định của Board.
+   * Dùng khi muốn hiển thị chi tiết ở nơi khác (ví dụ: SplitPane).
+   */
+  disableDetailModal?: boolean
 }

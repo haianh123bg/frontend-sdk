@@ -10,6 +10,7 @@ export interface SortableKanbanCardProps {
   mappings: KanbanBoardProps['mappings']
   renderCard?: KanbanBoardProps['renderCard']
   onCardClick?: (item: KanbanItem) => void
+  visibleFields?: string[]
 }
 
 export const SortableKanbanCard: React.FC<SortableKanbanCardProps> = ({
@@ -18,6 +19,7 @@ export const SortableKanbanCard: React.FC<SortableKanbanCardProps> = ({
   mappings,
   renderCard,
   onCardClick,
+  visibleFields,
 }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
@@ -26,7 +28,7 @@ export const SortableKanbanCard: React.FC<SortableKanbanCardProps> = ({
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.9 : undefined,
+    opacity: isDragging ? 0.3 : undefined,
   }
 
   return (
@@ -37,6 +39,7 @@ export const SortableKanbanCard: React.FC<SortableKanbanCardProps> = ({
         mappings={mappings}
         renderCard={renderCard}
         onClick={onCardClick ? () => onCardClick(item) : undefined}
+        visibleFields={visibleFields}
       />
     </div>
   )

@@ -107,3 +107,14 @@ export * from './components/organisms/SpreadsheetGrid/SpreadsheetGrid'
 
 // Kanban Module
 export * from './kanban'
+
+// Chat Module
+export * from './components/organisms/Chat/types'
+export * from './components/organisms/Chat/utils'
+export * from './components/organisms/Chat/hooks/useChatScroll'
+export * from './components/organisms/Chat/ChatHeader'
+export * from './components/organisms/Chat/MessageItem'
+export * from './components/organisms/Chat/MessageList'
+export * from './components/organisms/Chat/ChatInput'
+export * from './components/organisms/Chat/ChatPanel'
+export * from './components/organisms/Chat/BoxChat'

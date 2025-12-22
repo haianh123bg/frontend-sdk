@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Scroll } from '../../atoms/Scroll/Scroll'
 import { Button } from '../../atoms/Button/Button'
@@ -19,6 +20,7 @@ export interface KanbanColumnProps {
   virtualized?: boolean
   virtualRowHeight?: number
   virtualOverscan?: number
+  visibleFields?: string[]
 }
 
 export const KanbanColumn: React.FC<KanbanColumnProps> = ({
@@ -33,8 +35,17 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   virtualized,
   virtualRowHeight = 96,
   virtualOverscan = 8,
+  visibleFields,
 }) => {
   const parentRef = React.useRef<HTMLDivElement | null>(null)
+
+  const { setNodeRef } = useDroppable({
+    id: columnKey,
+    data: {
+      type: 'Column',
+      columnKey,
+    },
+  })
 
   const rowVirtualizer = useVirtualizer({
     count: virtualized ? items.length : 0,
@@ -53,6 +64,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
 
   return (
     <div
+      ref={setNodeRef}
       className="flex h-full min-w-[280px] max-w-xs flex-1 flex-col rounded-2xl bg-surface p-3"
       role="list"
       aria-label={title}
@@ -103,6 +115,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
                       mappings={mappings}
                       renderCard={renderCard}
                       onClick={onCardClick ? () => onCardClick(item) : undefined}
+                      visibleFields={visibleFields}
                     />
                   </div>
                 )
@@ -120,6 +133,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
                     mappings={mappings}
                     renderCard={renderCard}
                     onCardClick={onCardClick}
+                    visibleFields={visibleFields}
                   />
                 ))}
               </div>

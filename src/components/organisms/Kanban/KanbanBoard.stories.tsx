@@ -2,6 +2,20 @@ import type { Meta, StoryObj } from '@storybook/react'
 import * as React from 'react'
 import { KanbanBoard } from './KanbanBoard'
 import type { KanbanColumnConfig, KanbanMappings, KanbanSchema } from '../../../kanban/types'
+import { SplitPane } from '../../molecules/SplitPane/SplitPane'
+import { KanbanItemDetail } from './KanbanItemDetail'
+import { Breadcrumb } from '../../molecules/Breadcrumb/Breadcrumb'
+import { Avatar, AvatarGroup } from '../../atoms/Avatar/Avatar'
+import { IconButton } from '../../atoms/IconButton/IconButton'
+import { 
+  ChevronsRight, 
+  Maximize2, 
+  Minimize2, 
+  Star, 
+  MoreHorizontal, 
+  Share2,
+  LayoutTemplate
+} from 'lucide-react'
 
 const schema: KanbanSchema = {
   table: 'tasks',
@@ -13,13 +27,16 @@ const schema: KanbanSchema = {
     { name: 'dueDate', type: 'date', label: 'Due date' },
     { name: 'priority', type: 'enum', label: 'Priority', enumValues: ['low', 'medium', 'high'] },
     { name: 'tags', type: 'string', label: 'Tags' },
+    { name: 'storyPoints', type: 'number', label: 'Points' },
+    { name: 'isBlocked', type: 'boolean', label: 'Blocked' },
+    { name: 'description', type: 'text', label: 'Description' },
   ],
   defaultMappings: {
     idField: 'id',
     columnKey: 'status',
     cardTitle: 'title',
     cardSubtitle: 'assignee',
-    cardMeta: ['dueDate', 'priority'],
+    cardMeta: ['dueDate', 'priority', 'storyPoints', 'isBlocked'],
     cardTags: 'tags',
   },
 }
@@ -29,7 +46,7 @@ const mappings: KanbanMappings = {
   columnKey: 'status',
   cardTitle: 'title',
   cardSubtitle: 'assignee',
-  cardMeta: ['dueDate', 'priority'],
+  cardMeta: ['dueDate', 'priority', 'storyPoints', 'isBlocked'],
   cardTags: 'tags',
 }
 
@@ -42,30 +59,49 @@ const columns: KanbanColumnConfig[] = [
 const itemsBase: Record<string, any>[] = [
   {
     id: '1',
-    title: 'Set up project',
+    title: 'Set up project structure and initial configuration',
     status: 'todo',
     assignee: 'Alice',
     dueDate: '2025-01-10',
     priority: 'high',
     tags: ['setup', 'infra'],
+    storyPoints: 5,
+    isBlocked: false,
+    description: 'Initialize repo, setup eslint, prettier, typescript',
   },
   {
     id: '2',
-    title: 'Design Kanban UI',
+    title: 'Design Kanban UI Components',
     status: 'doing',
     assignee: 'Bob',
     dueDate: '2025-01-12',
     priority: 'medium',
-    tags: ['ui'],
+    tags: ['ui', 'design'],
+    storyPoints: 8,
+    isBlocked: true,
+    description: 'Create Figma designs for board, column, and card',
   },
   {
     id: '3',
-    title: 'Write docs',
+    title: 'Write documentation for APIs',
     status: 'done',
     assignee: 'Charlie',
     dueDate: '2025-01-08',
     priority: 'low',
     tags: ['docs'],
+    storyPoints: 3,
+    isBlocked: false,
+  },
+  {
+    id: '4',
+    title: 'Implement Drag and Drop',
+    status: 'doing',
+    assignee: 'David',
+    dueDate: '2025-01-15',
+    priority: 'high',
+    tags: ['feature', 'complex'],
+    storyPoints: 13,
+    isBlocked: false,
   },
 ]
 
@@ -83,12 +119,14 @@ const makeManyItems = (count: number): Record<string, any>[] => {
 
     return {
       id,
-      title: `Task ${id}`,
+      title: `Task ${id} - This is a generated task title to test layout`,
       status,
       assignee,
       dueDate: `2025-01-${day}`,
       priority,
       tags: i % 3 === 0 ? ['bulk', 'long-list'] : ['bulk'],
+      storyPoints: (i % 10) + 1,
+      isBlocked: i % 5 === 0,
     }
   })
 }
@@ -104,7 +142,7 @@ const Shell: React.FC<{
   const [data, setData] = React.useState(items)
 
   return (
-    <div style={{ height: 640 }}>
+    <div className="h-[640px] w-full bg-slate-50 p-4">
       <KanbanBoard
         schema={schema}
         mappings={mappings}
@@ -122,6 +160,7 @@ const Shell: React.FC<{
         } : undefined}
         renderCard={renderCard}
         renderColumnHeader={renderColumnHeader}
+        className="shadow-sm"
       />
     </div>
   )
@@ -130,6 +169,9 @@ const Shell: React.FC<{
 const meta: Meta<typeof KanbanBoard> = {
   title: 'Organisms/Kanban/Board',
   component: KanbanBoard,
+  parameters: {
+    layout: 'fullscreen',
+  },
 }
 
 export default meta
@@ -205,4 +247,171 @@ export const CustomColumnHeader: Story = {
 
 export const ReadOnlyMoveDisabled: Story = {
   render: () => <Shell items={itemsBase} permissions={{ canCreate: false, canMove: false }} />,
+}
+
+const WithSplitPaneStory = () => {
+  const [items, setItems] = React.useState(itemsBase)
+  const [selectedId, setSelectedId] = React.useState<string | null>(null)
+  const [isFullScreen, setIsFullScreen] = React.useState(false)
+
+  const selectedItem = React.useMemo(() => 
+    items.find(i => i.id === selectedId) ?? null, 
+    [items, selectedId]
+  )
+
+  const handleUpdate = (id: string, patch: any) => {
+    setItems(prev => prev.map(item => 
+      item.id === id ? { ...item, ...patch } : item
+    ))
+    return Promise.resolve()
+  }
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const base = `${window.location.pathname}${window.location.search}`
+    if (selectedId && isFullScreen) {
+      window.history.replaceState({}, '', `${base}#/kanban/tasks/${selectedId}`)
+      return
+    }
+    window.history.replaceState({}, '', `${base}#/kanban`)
+  }, [selectedId, isFullScreen])
+
+  const renderDetail = () => {
+    if (!selectedItem) return null
+    
+    return (
+      <div className="flex h-full flex-col bg-white rounded-2xl shadow-sm overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2 bg-white">
+          <div className="flex items-center gap-2">
+            <IconButton 
+              icon={ChevronsRight} 
+              onClick={() => setSelectedId(null)} 
+              title="Đóng chi tiết"
+              size='xs'
+            />
+            <IconButton 
+              icon={isFullScreen ? Minimize2 : Maximize2} 
+              onClick={() => setIsFullScreen(!isFullScreen)}
+              title={isFullScreen ? "Thoát toàn màn hình" : "Mở toàn màn hình"}
+              size='xs'
+            />
+            <IconButton 
+              icon={LayoutTemplate} 
+              title="Chuyển chế độ xem"
+              size='xs'
+            />
+          </div>
+          <div className="flex items-center gap-3">
+             <AvatarGroup max={3}>
+               <Avatar initials="AB" size='sm' className="bg-blue-100 text-blue-600" />
+               <Avatar initials="CD" size='sm' className="bg-green-100 text-green-600" />
+               <Avatar initials="EF" size='sm' className="bg-purple-100 text-purple-600" />
+               <Avatar initials="GH" size='sm' className="bg-orange-100 text-orange-600" />
+             </AvatarGroup>
+             <div className="h-4 w-[1px] bg-slate-200" />
+             <div className="flex items-center gap-1">
+               <IconButton icon={Share2} title="Chia sẻ" size='xs' />
+               <IconButton icon={Star} title="Yêu thích" size='xs' />
+               <IconButton icon={MoreHorizontal} title="Thêm" size='xs' />
+             </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-auto p-4">
+          <KanbanItemDetail 
+            item={{ id: selectedItem.id, data: selectedItem }} 
+            schema={schema}
+            onPatch={(_, patch) => handleUpdate(selectedItem.id, patch)}
+            onCancel={() => setSelectedId(null)}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  // Full Screen Mode
+  if (selectedId && isFullScreen) {
+    return (
+      <div className="h-screen w-full bg-slate-50 p-4 flex flex-col gap-3">
+        <div className="rounded-2xl bg-white px-4 py-2 shadow-sm">
+          <Breadcrumb
+            items={[
+              { label: 'Projects', href: '#' },
+              { label: 'Board', href: '#' },
+              { label: selectedItem?.title || selectedId, onClick: () => {} }
+            ]}
+          />
+        </div>
+        <div className="flex-1 min-h-0">
+          {renderDetail()}
+        </div>
+      </div>
+    )
+  }
+
+  // Board Only Mode (No Selection)
+  if (!selectedId) {
+    return (
+      <div className="h-screen w-full bg-slate-50 p-4">
+        <KanbanBoard
+          schema={schema}
+          mappings={mappings}
+          columns={columns}
+          items={items}
+          pageSize={50}
+          locale="vi-VN"
+          permissions={{ canCreate: true, canMove: true, canEdit: true }}
+          onCreate={async (payload) => {
+            const next = { ...payload, id: String(Date.now()), status: payload.status ?? 'todo' }
+            setItems((prev) => [next, ...prev])
+            return next
+          }}
+          onUpdate={handleUpdate}
+          selectedId={null}
+          onSelectionChange={setSelectedId}
+          disableDetailModal
+          className="shadow-sm"
+        />
+      </div>
+    )
+  }
+
+  // Split Pane Mode (Board + Detail)
+  return (
+    <div className="h-screen w-full bg-slate-50 p-4">
+      <SplitPane>
+        <div className="h-full w-full pr-2">
+           <KanbanBoard
+            schema={schema}
+            mappings={mappings}
+            columns={columns}
+            items={items}
+            pageSize={50}
+            locale="vi-VN"
+            permissions={{ canCreate: true, canMove: true, canEdit: true }}
+            onCreate={async (payload) => {
+              const next = { ...payload, id: String(Date.now()), status: payload.status ?? 'todo' }
+              setItems((prev) => [next, ...prev])
+              return next
+            }}
+            onUpdate={handleUpdate}
+            selectedId={selectedId}
+            onSelectionChange={setSelectedId}
+            disableDetailModal
+            className="shadow-sm"
+          />
+        </div>
+        <div className="h-full w-full pl-2">
+          {renderDetail()}
+        </div>
+      </SplitPane>
+    </div>
+  )
+}
+
+export const WithSplitPane: Story = {
+  render: () => <WithSplitPaneStory />
 }

@@ -94,7 +94,7 @@ export const SplitPane = React.forwardRef<HTMLDivElement, SplitPaneProps>(
         ref={containerRef}
         className={twMerge(
           clsx(
-            'overflow-hidden rounded-2xl border border-slate-200 bg-surface',
+            'overflow-hidden rounded-2xl bg-surface',
             className
           )
         )}
@@ -106,7 +106,7 @@ export const SplitPane = React.forwardRef<HTMLDivElement, SplitPaneProps>(
           onLayout={handleLayout}
         >
           <Panel defaultSize={primaryDefaultSize} minSize={minPrimaryPct}>
-            <div className={clsx('h-full w-full overflow-auto', !isHorizontal && 'w-full')}>{primary}</div>
+            <div className={clsx('h-full w-full overflow-hidden', !isHorizontal && 'w-full')}>{primary}</div>
           </Panel>
           <PanelResizeHandle
             className={clsx(
@@ -122,7 +122,7 @@ export const SplitPane = React.forwardRef<HTMLDivElement, SplitPaneProps>(
             />
           </PanelResizeHandle>
           <Panel defaultSize={100 - primaryDefaultSize} minSize={minSecondaryPct}>
-            <div className={clsx('h-full w-full overflow-auto', !isHorizontal && 'w-full')}>{secondary}</div>
+            <div className={clsx('h-full w-full overflow-hidden', !isHorizontal && 'w-full')}>{secondary}</div>
           </Panel>
         </PanelGroup>
       </div>
