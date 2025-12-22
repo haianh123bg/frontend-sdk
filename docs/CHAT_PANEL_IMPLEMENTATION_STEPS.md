@@ -5,6 +5,7 @@ Tài liệu này mô tả **các hành động cụ thể từng bước** để
 ---
 
 ## 1) Xác định phạm vi & vị trí code
+_Tiến độ: ✅ Đã chọn module `src/components/organisms/Chat/*` và thiết kế bộ component theo đúng phạm vi._
 - **Mục tiêu**: tạo các component `BoxChat`, `ChatPanel`, `ChatHeader`, `MessageList`, `MessageItem`, `ChatInput` + types/hooks.
 - **Quy ước**:
   - Reuse primitives có sẵn: `Avatar`, `Button`, `IconButton`, `Input`, `Modal`, `Popover`, `CornerPanel`.
@@ -17,6 +18,7 @@ Tài liệu này mô tả **các hành động cụ thể từng bước** để
 ---
 
 ## 2) Định nghĩa Data Model & Types (bắt buộc)
+_Tiến độ: ✅ `types.ts` đã chứa toàn bộ `ChatMessage`, `SendMessageInput`, `AgentThinkingState`, helper optimistic._
 Tạo file `types.ts` và định nghĩa rõ:
 
 - `ChatMessageDirection = 'incoming' | 'outgoing' | 'system'`
@@ -35,6 +37,7 @@ Kết quả:
 ---
 
 ## 3) Thiết kế Props API cho từng component
+_Tiến độ: ✅ Props cho `ChatPanel`/`BoxChat`/`MessageList`/`ChatInput` đã implement đủ callback + state._
 Xác định rõ props để component không phụ thuộc backend:
 
 - `BoxChatProps`:
@@ -55,6 +58,7 @@ Xác định rõ props để component không phụ thuộc backend:
 ---
 
 ## 4) Implement `BoxChat` (container)
+_Tiến độ: ✅ `BoxChat.tsx` dựng CornerPanel + truyền `ChatPanel`._
 - Dùng `CornerPanel` (hoặc `Drawer` nếu bạn chọn) để dựng layout box chat.
 - Cấu trúc:
   - Header (dùng `ChatHeader`)
@@ -66,6 +70,7 @@ Xác định rõ props để component không phụ thuộc backend:
 ---
 
 ## 5) Implement `ChatHeader`
+_Tiến độ: ✅ `ChatHeader.tsx` hoàn tất (logo, status, icon buttons + callbacks)._
 - Trái: logo + tên Agent (+ Online/Offline nếu có).
 - Phải: 4 nút icon (Call, Conversations, Tasks, New Conversation).
 - Dùng `IconButton` + icon từ `lucide-react`.
@@ -74,6 +79,7 @@ Xác định rõ props để component không phụ thuộc backend:
 ---
 
 ## 6) Implement `MessageItem` (render nội dung)
+_Tiến độ: ✅ Đã render text/markdown(image)/file/system + trạng thái + retry + actions menu._
 Tạo component render theo `message.direction` và `message.content.type`:
 
 - **Outgoing** (current user): canh phải, bubble màu primary tint, có thể ẩn avatar.
@@ -93,6 +99,7 @@ Trạng thái message (nếu có): `sending/sent/delivered/seen/failed`.
 ---
 
 ## 7) Implement khu vực “thinking/streaming” của Agent
+_Tiến độ: ✅ `AgentThinkingMessage` hiển thị bubble mờ + animation._
 Tạo `AgentThinkingMessage` (hoặc tích hợp trong `MessageList`) với rules:
 
 - Hiển thị như bubble incoming, **text mờ** + hiệu ứng chạy.
@@ -106,6 +113,7 @@ Tạo `AgentThinkingMessage` (hoặc tích hợp trong `MessageList`) với rule
 ---
 
 ## 8) Implement `MessageList` (scroll, infinite, virtualize)
+_Tiến độ: ✅ Virtual scroll, auto-scroll có điều kiện, load older, date separator, nút “Tin nhắn mới”._
 Yêu cầu:
 - Newest ở cuối.
 - Auto-scroll có điều kiện.
@@ -128,6 +136,7 @@ Thực hiện:
 ---
 
 ## 9) Implement `ChatInput`
+_Tiến độ: ✅ Textarea multiline + preview attachments + icon hàng ngang + Enter để gửi._
 Bố cục 3 phần:
 
 - (a) Attachments preview:
@@ -150,6 +159,7 @@ Hành vi:
 ---
 
 ## 10) Optimistic message flow (UI state)
+_Tiến độ: ✅ `ChatPanel` đang quản lý optimistic + retry flow._
 - Khi user gửi:
   - UI append optimistic `ChatMessage` (outgoing) với `status: 'sending'` và `clientId`.
 - Khi server ack:
@@ -164,6 +174,7 @@ Lưu ý:
 ---
 
 ## 11) Markdown rendering an toàn (XSS)
+_Tiến độ: ⚠️ Tạm thời render markdown dạng plain text (chưa có `react-markdown` + sanitize). Cần bổ sung thư viện + cấu hình an toàn nếu muốn fully done._
 - Ưu tiên:
   - thêm `react-markdown` + `remark-gfm` + `rehype-sanitize`.
   - cấu hình sanitize chặt.
@@ -173,6 +184,7 @@ Lưu ý:
 ---
 
 ## 12) Message actions menu (copy/delete/recall/reply/react)
+_Tiến độ: ✅ Dropdown menu đã hoạt động, enable theo props._
 - Với mỗi `MessageItem`:
   - đặt menu (Popover/Dropdown) ở góc bubble.
   - action nào bật/tắt dựa trên props/quyền (`canDelete/canRecall`).
@@ -181,6 +193,7 @@ Lưu ý:
 ---
 
 ## 13) Hoàn thiện UX: loading, errors, presence, typing
+_Tiến độ: ✅ Typing indicator (`typingText`) + trạng thái gửi lỗi/failed. Banner lỗi/presence nâng cao chưa bắt buộc._
 - Banner nhỏ/inline status:
   - mất kết nối
   - gửi lỗi
@@ -192,6 +205,7 @@ Lưu ý:
 ---
 
 ## 14) Export SDK & story/demo
+_Tiến độ: ✅ Export toàn bộ module qua `src/index.ts`. 📌 Story/example demo vẫn là optional TODO._
 - Export component/types từ `src/index.ts`.
 - (Khuyến nghị) thêm storybook story hoặc example demo để QA:
   - list có nhiều message
