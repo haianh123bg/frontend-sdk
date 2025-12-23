@@ -10,6 +10,7 @@ export interface ChatPanelProps
       MessageListProps,
       | 'showSenderName'
       | 'showOutgoingAvatar'
+      | 'incomingMessageStyle'
       | 'onCopy'
       | 'onDelete'
       | 'onRecall'
@@ -17,7 +18,7 @@ export interface ChatPanelProps
       | 'onReact'
     >,
     Pick<ChatHeaderProps, 'onCallAgent' | 'onOpenConversations' | 'onOpenTasks' | 'onCreateConversation' | 'onClose'>,
-    Pick<ChatInputProps, 'allowAttachments' | 'maxAttachments' | 'placeholder' | 'onOpenSettings' | 'onVoiceToText'> {
+    Pick<ChatInputProps, 'allowAttachments' | 'maxAttachments' | 'placeholder' | 'mentionContexts' | 'onOpenSettings' | 'onVoiceToText'> {
   agent: ChatAgentInfo
   messages: ChatMessage[]
   agentThinking?: AgentThinkingState | null
@@ -53,6 +54,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   currentUserAvatarUrl,
   showSenderName,
   showOutgoingAvatar,
+  incomingMessageStyle,
   onCopy,
   onDelete,
   onRecall,
@@ -66,6 +68,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   allowAttachments,
   maxAttachments,
   placeholder,
+  mentionContexts,
   onOpenSettings,
   onVoiceToText,
   virtualized,
@@ -180,6 +183,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         currentUserId={currentUserId}
         showSenderName={showSenderName}
         showOutgoingAvatar={showOutgoingAvatar}
+        incomingMessageStyle={incomingMessageStyle}
         onCopy={onCopy}
         onDelete={onDelete}
         onRecall={onRecall}
@@ -201,6 +205,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         allowAttachments={allowAttachments}
         maxAttachments={maxAttachments}
         placeholder={placeholder}
+        mentionContexts={mentionContexts}
         onOpenSettings={onOpenSettings}
         onVoiceToText={onVoiceToText}
       />

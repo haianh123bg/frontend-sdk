@@ -19,6 +19,7 @@ export interface MessageListProps
     | 'currentUserId'
     | 'showSenderName'
     | 'showOutgoingAvatar'
+    | 'incomingMessageStyle'
     | 'onCopy'
     | 'onDelete'
     | 'onRecall'

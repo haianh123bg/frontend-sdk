@@ -44,7 +44,13 @@ export interface SendMessageInput {
   markdown?: string
   attachments?: File[]
   replyToId?: string
-  meta?: { source?: 'keyboard' | 'voice' | 'quick_action' }
+  meta?: {
+    source?: 'keyboard' | 'voice' | 'quick_action'
+    webSearch?: boolean
+    autoApprove?: boolean
+    linkedSources?: string[]
+    mentions?: string[]
+  }
 }
 
 export type AgentThinkingState =

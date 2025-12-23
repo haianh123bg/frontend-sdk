@@ -86,6 +86,8 @@ export * from './components/molecules/Popover/Popover'
 export * from './components/molecules/Toast/Toast'
 export * from './components/molecules/CornerPanel/CornerPanel'
 export * from './components/molecules/SpeedDial/SpeedDial'
+export * from './components/molecules/MenuDropdown/MenuDropdown'
+export * from './components/molecules/MenuDropdown/MenuDropdownPortal'
 
 // Navigation Components
 export * from './components/molecules/Tabs/Tabs'

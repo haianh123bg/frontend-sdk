@@ -58,45 +58,98 @@ export const MenuDropdown: React.FC<MenuDropdownProps> = ({
 }) => {
   const selectedValue = value ?? ''
   const containerRef = React.useRef<HTMLDivElement | null>(null)
+  const [resolvedSide, setResolvedSide] = React.useState<'top' | 'bottom'>(side)
   const [positionStyle, setPositionStyle] = React.useState<React.CSSProperties>({})
+
+  React.useEffect(() => {
+    setResolvedSide(side)
+  }, [side])
 
   React.useLayoutEffect(() => {
     if (!autoPosition) return
+    if (typeof window === 'undefined') return
     const el = containerRef.current
     if (!el) return
 
-    const rect = el.getBoundingClientRect()
-    const margin = 8
-    let dx = 0
-    let dy = 0
+    const update = () => {
+      const rect = el.getBoundingClientRect()
+      const margin = 8
 
-    if (rect.left < margin) {
-      dx = margin - rect.left
-    } else if (rect.right > window.innerWidth - margin) {
-      dx = window.innerWidth - margin - rect.right
+      const anchorEl = el.offsetParent instanceof HTMLElement ? el.offsetParent : el.parentElement
+      const anchorRect = anchorEl?.getBoundingClientRect()
+
+      let tx = 0
+      let ty = 0
+      const rawTransform = el.style.transform || ''
+      const m = rawTransform.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/)
+      if (m) {
+        tx = Number(m[1])
+        ty = Number(m[2])
+      }
+
+      const baseRect = {
+        top: rect.top - ty,
+        bottom: rect.bottom - ty,
+        left: rect.left - tx,
+        right: rect.right - tx,
+        width: rect.width,
+        height: rect.height,
+      }
+
+      const spaceAbove = anchorRect ? anchorRect.top - sideOffset - margin : baseRect.top - margin
+      const spaceBelow = anchorRect
+        ? window.innerHeight - (anchorRect.bottom + sideOffset) - margin
+        : window.innerHeight - baseRect.bottom - margin
+
+      const shouldFlip =
+        resolvedSide === 'bottom'
+          ? baseRect.height > spaceBelow && spaceAbove > spaceBelow
+          : baseRect.height > spaceAbove && spaceBelow > spaceAbove
+
+      if (shouldFlip) {
+        setResolvedSide(resolvedSide === 'bottom' ? 'top' : 'bottom')
+        return
+      }
+
+      let dx = 0
+      let dy = 0
+
+      if (baseRect.left < margin) {
+        dx = margin - baseRect.left
+      } else if (baseRect.right > window.innerWidth - margin) {
+        dx = window.innerWidth - margin - baseRect.right
+      }
+
+      if (resolvedSide === 'bottom' && baseRect.bottom > window.innerHeight - margin) {
+        dy = window.innerHeight - margin - baseRect.bottom
+      } else if (resolvedSide === 'top' && baseRect.top < margin) {
+        dy = margin - baseRect.top
+      }
+
+      if (dx !== 0 || dy !== 0) {
+        setPositionStyle({ transform: `translate(${dx}px, ${dy}px)` })
+      } else {
+        setPositionStyle({})
+      }
     }
 
-    if (side === 'bottom' && rect.bottom > window.innerHeight - margin) {
-      dy = window.innerHeight - margin - rect.bottom
-    } else if (side === 'top' && rect.top < margin) {
-      dy = margin - rect.top
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('scroll', update, true)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('scroll', update, true)
     }
-
-    if (dx !== 0 || dy !== 0) {
-      setPositionStyle({ transform: `translate(${dx}px, ${dy}px)` })
-    } else {
-      setPositionStyle({})
-    }
-  }, [autoPosition, side, align, options, value])
+  }, [autoPosition, resolvedSide, align, options, sideOffset, value])
 
   const basePositionClasses = clsx(
     'absolute z-50 min-w-[180px]',
-    side === 'bottom' ? 'top-full' : 'bottom-full',
+    resolvedSide === 'bottom' ? 'top-full' : 'bottom-full',
     align === 'end' ? 'right-0' : 'left-0'
   )
 
   const offsetStyle: React.CSSProperties =
-    side === 'bottom' ? { marginTop: sideOffset } : { marginBottom: sideOffset }
+    resolvedSide === 'bottom' ? { marginTop: sideOffset } : { marginBottom: sideOffset }
 
   return (
     <div

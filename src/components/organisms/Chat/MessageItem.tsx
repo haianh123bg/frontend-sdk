@@ -15,6 +15,7 @@ export interface MessageItemProps {
   currentUserId: string
   showSenderName?: boolean
   showOutgoingAvatar?: boolean
+  incomingMessageStyle?: 'default' | 'flat'
   onCopy?: (message: ChatMessage) => void
   onDelete?: (message: ChatMessage) => void
   onRecall?: (message: ChatMessage) => void
@@ -40,6 +41,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   currentUserId,
   showSenderName = true,
   showOutgoingAvatar = false,
+  incomingMessageStyle = 'default',
   onCopy,
   onDelete,
   onRecall,
@@ -61,11 +63,17 @@ export const MessageItem: React.FC<MessageItemProps> = ({
     )
   }
 
-  const bubbleBase =
-    'max-w-[80%] rounded-2xl px-3 py-2 text-sm break-words whitespace-pre-wrap'
+  const outgoingBubbleBase = 'max-w-[80%] rounded-2xl px-3 py-2 text-sm break-words whitespace-pre-wrap'
+  const incomingBubbleBase =
+    incomingMessageStyle === 'flat'
+      ? 'max-w-[80%] rounded-xl px-2 py-1.5 text-sm break-words whitespace-pre-wrap'
+      : outgoingBubbleBase
+
   const bubbleClass = isOutgoing
-    ? `bg-primary-500 text-white ${bubbleBase}`
-    : `bg-surface-alt text-text-primary ${bubbleBase}`
+    ? `bg-primary-500 text-white ${outgoingBubbleBase}`
+    : incomingMessageStyle === 'flat'
+      ? `bg-transparent text-text-primary ${incomingBubbleBase}`
+      : `bg-surface-alt text-text-primary ${incomingBubbleBase}`
 
   const wrapperClass = isOutgoing ? 'justify-end' : 'justify-start'
 
