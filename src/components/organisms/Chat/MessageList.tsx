@@ -44,7 +44,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   agentThinking,
   agentName,
   virtualized = true,
-  estimateRowHeight = 76,
+  estimateRowHeight = 44,
   overscan = 10,
   onLoadOlder,
   hasMoreOlder,
@@ -54,8 +54,19 @@ export const MessageList: React.FC<MessageListProps> = ({
 }) => {
   const scrollRef = React.useRef<HTMLDivElement | null>(null)
   const { isAtBottom } = useIsAtBottom(scrollRef)
+  const [highlightMessageKey, setHighlightMessageKey] = React.useState<string | null>(null)
+  const highlightTimeoutRef = React.useRef<number | null>(null)
 
-  const firstMessageKey = messages[0]?.id
+  const messageById = React.useMemo(() => {
+    const map = new Map<string, ChatMessage>()
+    for (const m of messages) {
+      map.set(m.id, m)
+      if (m.clientId) map.set(m.clientId, m)
+    }
+    return map
+  }, [messages])
+
+  const firstMessageKey = messages[0]?.clientId || messages[0]?.id
   usePreserveScrollOnPrepend({ scrollRef, firstRowKey: firstMessageKey, enabled: !!onLoadOlder })
 
   const rows = React.useMemo<RowItem[]>(() => {
@@ -63,12 +74,13 @@ export const MessageList: React.FC<MessageListProps> = ({
     let lastLabel: string | undefined
 
     for (const m of messages) {
+      const stableId = m.clientId || m.id
       const label = formatDateSeparatorLabel(m.createdAt)
       if (label !== lastLabel) {
-        result.push({ type: 'separator', key: `sep:${label}:${m.id}`, label })
+        result.push({ type: 'separator', key: `sep:${label}:${stableId}`, label })
         lastLabel = label
       }
-      result.push({ type: 'message', key: `msg:${m.id}`, message: m })
+      result.push({ type: 'message', key: `msg:${stableId}`, message: m })
     }
 
     if (agentThinking) {
@@ -81,6 +93,16 @@ export const MessageList: React.FC<MessageListProps> = ({
 
     return result
   }, [agentThinking, messages, typingText])
+
+  const messageRowIndexById = React.useMemo(() => {
+    const map = new Map<string, number>()
+    rows.forEach((row, idx) => {
+      if (row.type !== 'message') return
+      map.set(row.message.id, idx)
+      if (row.message.clientId) map.set(row.message.clientId, idx)
+    })
+    return map
+  }, [rows])
 
   const [showNewMessageButton, setShowNewMessageButton] = React.useState(false)
   const lastRowKey = rows.length ? rows[rows.length - 1].key : undefined
@@ -135,10 +157,22 @@ export const MessageList: React.FC<MessageListProps> = ({
     }
   }, [hasMoreOlder, isLoadingOlder, onLoadOlder])
 
+  const estimateSize = React.useCallback(
+    (index: number) => {
+      const row = rows[index]
+      if (!row) return estimateRowHeight
+      if (row.type === 'separator') return 32
+      if (row.type === 'thinking') return 56
+      return estimateRowHeight
+    },
+    [estimateRowHeight, rows]
+  )
+
   const rowVirtualizer = useVirtualizer({
     count: virtualized ? rows.length : 0,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => estimateRowHeight,
+    estimateSize,
+    getItemKey: (index) => rows[index]?.key ?? index,
     overscan,
   })
 
@@ -162,7 +196,42 @@ export const MessageList: React.FC<MessageListProps> = ({
       return <AgentThinkingMessage state={agentThinking} agentName={agentName} />
     }
 
-    return <MessageItem message={row.message} {...itemProps} />
+    const replyToMessage = row.message.replyToId ? messageById.get(row.message.replyToId) : undefined
+    const stableId = row.message.clientId || row.message.id
+    return (
+      <MessageItem
+        message={row.message}
+        replyToMessage={replyToMessage}
+        highlighted={highlightMessageKey === stableId}
+        onJumpToMessage={(messageId) => {
+          const idx = messageRowIndexById.get(messageId)
+          if (idx == null) return
+
+          const targetRow = rows[idx]
+          if (!targetRow || targetRow.type !== 'message') return
+          const targetStableId = targetRow.message.clientId || targetRow.message.id
+
+          if (highlightTimeoutRef.current) {
+            window.clearTimeout(highlightTimeoutRef.current)
+            highlightTimeoutRef.current = null
+          }
+
+          setHighlightMessageKey(targetStableId)
+          highlightTimeoutRef.current = window.setTimeout(() => {
+            setHighlightMessageKey(null)
+            highlightTimeoutRef.current = null
+          }, 300)
+
+          if (virtualized) {
+            rowVirtualizer.scrollToIndex(idx, { align: 'center' })
+          } else {
+            const el = document.getElementById(`chat-msg-${targetStableId}`)
+            el?.scrollIntoView({ block: 'center' })
+          }
+        }}
+        {...itemProps}
+      />
+    )
   }
 
   return (
@@ -180,9 +249,11 @@ export const MessageList: React.FC<MessageListProps> = ({
             {virtualItems.map((vRow) => {
               const row = rows[vRow.index]
               if (!row) return null
+              const stableId = row.type === 'message' ? row.message.clientId || row.message.id : undefined
               return (
                 <div
                   key={row.key}
+                  id={stableId ? `chat-msg-${stableId}` : undefined}
                   data-index={vRow.index}
                   ref={(el) => {
                     if (el) rowVirtualizer.measureElement(el)
@@ -203,9 +274,14 @@ export const MessageList: React.FC<MessageListProps> = ({
           </div>
         ) : (
           <div className="flex flex-col gap-2 px-1">
-            {rows.map((row) => (
-              <React.Fragment key={row.key}>{renderRow(row)}</React.Fragment>
-            ))}
+            {rows.map((row) => {
+              const stableId = row.type === 'message' ? row.message.clientId || row.message.id : undefined
+              return (
+                <div key={row.key} id={stableId ? `chat-msg-${stableId}` : undefined}>
+                  {renderRow(row)}
+                </div>
+              )
+            })}
           </div>
         )}
 

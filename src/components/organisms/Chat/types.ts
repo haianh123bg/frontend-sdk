@@ -16,6 +16,11 @@ export type ChatMessageContent =
   | { type: 'text'; text: string }
   | { type: 'markdown'; markdown: string }
   | { type: 'image'; url: string; thumbnailUrl?: string; alt?: string }
+  | { type: 'video'; url: string; thumbnailUrl?: string; alt?: string }
+  | { type: 'audio'; url: string; fileName?: string; duration?: number }
+  | { type: 'sticker'; url: string; thumbnailUrl?: string; alt?: string }
+  | { type: 'contact'; name: string; phone?: string; email?: string; avatarUrl?: string }
+  | { type: 'location'; lat: number; lng: number; label?: string }
   | { type: 'file'; fileName: string; url?: string; size?: number }
   | { type: 'system'; text: string }
 
@@ -101,5 +106,6 @@ export function createOptimisticOutgoingMessage({
     status: 'sending',
     content,
     attachments: attachments.length ? attachments : undefined,
+    replyToId: input.replyToId,
   }
 }
