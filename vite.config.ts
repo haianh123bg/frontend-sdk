@@ -35,7 +35,15 @@ export default defineConfig({
       formats: ['es', 'cjs'],
     },
     rollupOptions: {
-      external: ['react', 'react-dom', 'tailwindcss', 'framer-motion'],
+      external: (id) => {
+        const baseExternals = ['react', 'react-dom', 'tailwindcss', 'framer-motion']
+        if (baseExternals.includes(id)) return true
+
+        if (id.startsWith('@fullcalendar/') && !id.endsWith('.css')) return true
+        if (id === 'date-fns' || id.startsWith('date-fns/')) return true
+
+        return false
+      },
       input: entries,
       output: [
         {

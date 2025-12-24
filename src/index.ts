@@ -1,5 +1,6 @@
 export * from './components/atoms/Button/Button'
 export * from './components/atoms/Input/Input'
+export * from './components/atoms/ColorPicker/ColorPicker'
 export * from './components/molecules/FormField/FormField'
 export * from './components/organisms/DashboardLayout/DashboardLayout'
 export * from './bus/actionBus'
@@ -109,6 +110,7 @@ export * from './components/organisms/SpreadsheetGrid/SpreadsheetGrid'
 
 // Kanban Module
 export * from './kanban'
+export * from './components/organisms/Calendar'
 
 // Chat Module
 export * from './components/organisms/Chat/types'

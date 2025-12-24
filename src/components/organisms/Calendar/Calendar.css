@@ -1,0 +1,30 @@
+.rai-calendar .fc {
+  --fc-border-color: rgba(148, 163, 184, 0.35);
+  --fc-page-bg-color: transparent;
+  --fc-today-bg-color: rgba(14, 165, 233, 0.08);
+  --fc-now-indicator-color: var(--color-primary-500);
+}
+
+.rai-calendar .fc .fc-scrollgrid,
+.rai-calendar .fc .fc-scrollgrid-section > td,
+.rai-calendar .fc .fc-timegrid-divider {
+  border-color: var(--fc-border-color);
+}
+
+.rai-calendar .fc .fc-event {
+  border-radius: 8px;
+  border-width: 0;
+  padding: 2px 4px;
+}
+
+.rai-calendar .fc .fc-event-title {
+  font-weight: 500;
+}
+
+.rai-calendar .fc .fc-timegrid-now-indicator-line {
+  border-color: var(--fc-now-indicator-color);
+}
+
+.rai-calendar .fc .fc-timegrid-now-indicator-arrow {
+  border-color: var(--fc-now-indicator-color);
+}
