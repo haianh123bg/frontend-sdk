@@ -21,6 +21,7 @@ export type ChatMessageContent =
   | { type: 'sticker'; url: string; thumbnailUrl?: string; alt?: string }
   | { type: 'contact'; name: string; phone?: string; email?: string; avatarUrl?: string }
   | { type: 'location'; lat: number; lng: number; label?: string }
+  | { type: 'call'; kind: 'missed' | 'incoming'; isVideo?: boolean; durationSec?: number }
   | { type: 'file'; fileName: string; url?: string; size?: number }
   | { type: 'system'; text: string }
 

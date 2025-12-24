@@ -1,5 +1,27 @@
 import * as React from 'react'
-import { Copy, CornerUpLeft, EllipsisVertical, Trash2, RotateCcw, Undo2, ThumbsUp, Heart, Laugh, Play, MapPin } from 'lucide-react'
+import {
+  Copy,
+  CornerUpLeft,
+  EllipsisVertical,
+  ExternalLink,
+  Download,
+  Trash2,
+  RotateCcw,
+  Undo2,
+  ThumbsUp,
+  Heart,
+  Laugh,
+  Play,
+  MapPin,
+  PhoneIncoming,
+  PhoneMissed,
+  Video,
+  FileText,
+  FileImage,
+  FileVideo,
+  FileAudio,
+  FileArchive,
+} from 'lucide-react'
 import { Avatar } from '../../atoms/Avatar/Avatar'
 import { Button } from '../../atoms/Button/Button'
 import { IconButton } from '../../atoms/IconButton/IconButton'
@@ -37,6 +59,63 @@ const statusLabel: Record<NonNullable<ChatMessage['status']>, string> = {
 
 function safeText(text: string) {
   return text
+}
+
+function formatDuration(sec: number) {
+  const s = Math.max(0, Math.floor(sec))
+  const mm = String(Math.floor(s / 60)).padStart(2, '0')
+  const ss = String(s % 60).padStart(2, '0')
+  return `${mm}:${ss}`
+}
+
+function formatFileSize(size?: number) {
+  if (!Number.isFinite(size) || !size || size <= 0) return undefined
+  const kb = size / 1024
+  if (kb < 1024) return `${kb.toFixed(kb < 10 ? 1 : 0)} KB`
+  const mb = kb / 1024
+  if (mb < 1024) return `${mb.toFixed(mb < 10 ? 1 : 0)} MB`
+  const gb = mb / 1024
+  return `${gb.toFixed(gb < 10 ? 1 : 0)} GB`
+}
+
+function getFileExtension(nameOrUrl: string) {
+  const clean = nameOrUrl.split('?')[0].split('#')[0]
+  const base = clean.split('/').pop() || clean
+  const idx = base.lastIndexOf('.')
+  if (idx <= 0) return ''
+  return base.slice(idx + 1).toLowerCase()
+}
+
+function getFileBadge(ext: string) {
+  const e = ext.toLowerCase()
+
+  if (['pdf'].includes(e)) {
+    return { label: 'PDF', className: 'bg-red-500 text-white' }
+  }
+  if (['doc', 'docx'].includes(e)) {
+    return { label: 'W', className: 'bg-blue-600 text-white' }
+  }
+  if (['xls', 'xlsx', 'csv'].includes(e)) {
+    return { label: 'X', className: 'bg-emerald-600 text-white' }
+  }
+  if (['ppt', 'pptx'].includes(e)) {
+    return { label: 'P', className: 'bg-orange-500 text-white' }
+  }
+
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(e)) {
+    return { icon: FileImage, className: 'bg-teal-500 text-white' }
+  }
+  if (['mp4', 'mov', 'webm', 'mkv'].includes(e)) {
+    return { icon: FileVideo, className: 'bg-fuchsia-500 text-white' }
+  }
+  if (['mp3', 'wav', 'ogg', 'm4a'].includes(e)) {
+    return { icon: FileAudio, className: 'bg-indigo-500 text-white' }
+  }
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(e)) {
+    return { icon: FileArchive, className: 'bg-amber-500 text-white' }
+  }
+
+  return { icon: FileText, className: 'bg-slate-100 text-text-secondary' }
 }
 
 export const MessageItem: React.FC<MessageItemProps> = ({
@@ -77,7 +156,9 @@ export const MessageItem: React.FC<MessageItemProps> = ({
     message.content.type === 'sticker' ||
     message.content.type === 'audio' ||
     message.content.type === 'contact' ||
-    message.content.type === 'location'
+    message.content.type === 'location' ||
+    message.content.type === 'call' ||
+    message.content.type === 'file'
 
   const isColoredOutgoingBubble = isOutgoing && !isNoBubble
 
@@ -114,6 +195,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
     if (replyToMessage.content.type === 'sticker') return '[Sticker]'
     if (replyToMessage.content.type === 'contact') return `[Liên hệ] ${replyToMessage.content.name}`
     if (replyToMessage.content.type === 'location') return '[Vị trí]'
+    if (replyToMessage.content.type === 'call') return replyToMessage.content.kind === 'missed' ? '[Cuộc gọi nhỡ]' : '[Cuộc gọi đến]'
     if (replyToMessage.content.type === 'file') return `[File] ${replyToMessage.content.fileName}`
     if (replyToMessage.content.type === 'system') return safeText(replyToMessage.content.text)
     return ''
@@ -172,6 +254,34 @@ export const MessageItem: React.FC<MessageItemProps> = ({
             />
           </Modal>
         </>
+      )
+    }
+
+    if (message.content.type === 'call') {
+      const isMissed = message.content.kind === 'missed'
+      const isVideo = !!message.content.isVideo
+      const title = isMissed ? 'Cuộc gọi nhỡ' : 'Cuộc gọi đến'
+      const subtitle =
+        typeof message.content.durationSec === 'number'
+          ? `Thời lượng: ${formatDuration(message.content.durationSec)}`
+          : isMissed
+            ? 'Không trả lời'
+            : 'Đã kết thúc'
+
+      const LeadingIcon = isVideo ? Video : isMissed ? PhoneMissed : PhoneIncoming
+
+      return (
+        <div className="w-[280px] max-w-full overflow-hidden rounded-2xl border border-slate-200 bg-surface px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className={isMissed ? 'rounded-xl bg-red-50 p-2 text-red-600' : 'rounded-xl bg-slate-100 p-2 text-text-secondary'}>
+              <LeadingIcon size={18} />
+            </div>
+            <div className="min-w-0">
+              <div className="truncate text-sm font-semibold text-text-primary">{title}{isVideo ? ' (Video)' : ''}</div>
+              <div className="mt-0.5 truncate text-[12px] text-text-muted">{subtitle}</div>
+            </div>
+          </div>
+        </div>
       )
     }
 
@@ -331,17 +441,60 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 
     if (message.content.type === 'file') {
       const label = message.content.fileName
-      return message.content.url ? (
-        <a
-          href={message.content.url}
-          target="_blank"
-          rel="noreferrer"
-          className={isOutgoing ? 'underline text-white' : 'underline text-primary-600'}
-        >
-          {label}
-        </a>
-      ) : (
-        <span>{label}</span>
+      const url = message.content.url
+      const ext = getFileExtension(label || url || '')
+      const badge = getFileBadge(ext)
+      const sizeText = formatFileSize(message.content.size)
+
+      return (
+        <div className="w-[340px] max-w-full overflow-hidden rounded-2xl border border-slate-200 bg-surface">
+          <div className="flex items-center gap-3 px-4 py-3">
+            <div className={`shrink-0 rounded-xl ${badge.className} flex h-11 w-11 items-center justify-center`}>
+              {'label' in badge && badge.label ? (
+                <span className="text-sm font-extrabold">{badge.label}</span>
+              ) : (
+                (() => {
+                  const Icon = (badge as any).icon as React.ComponentType<{ size?: number }>
+                  return <Icon size={18} />
+                })()
+              )}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-semibold text-text-primary">{label}</div>
+              <div className="mt-0.5 truncate text-[12px] text-text-muted">
+                {sizeText ? sizeText : ''}
+                {sizeText && ext ? ' · ' : ''}
+                {ext ? ext.toUpperCase() : ''}
+                {!url ? (sizeText || ext ? ' · Đã có trên máy' : 'Đã có trên máy') : ''}
+              </div>
+            </div>
+
+            <div className="shrink-0 flex items-center gap-2">
+              {url && (
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-text-secondary hover:bg-slate-50"
+                  aria-label="Mở file"
+                >
+                  <ExternalLink size={16} />
+                </a>
+              )}
+              {url && (
+                <a
+                  href={url}
+                  download
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-text-secondary hover:bg-slate-50"
+                  aria-label="Tải xuống"
+                >
+                  <Download size={16} />
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
       )
     }
 
@@ -367,6 +520,10 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                   ? message.content.url
                   : message.content.type === 'sticker'
                     ? message.content.url
+                    : message.content.type === 'call'
+                      ? message.content.kind === 'missed'
+                        ? 'Cuộc gọi nhỡ'
+                        : 'Cuộc gọi đến'
                     : message.content.type === 'file'
                       ? message.content.url || message.content.fileName
                       : message.content.type === 'contact'

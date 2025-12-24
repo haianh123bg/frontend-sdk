@@ -113,6 +113,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     if (replyTo.content.type === 'sticker') return '[Sticker]'
     if (replyTo.content.type === 'contact') return `[Liên hệ] ${replyTo.content.name}`
     if (replyTo.content.type === 'location') return '[Vị trí]'
+    if (replyTo.content.type === 'call') return replyTo.content.kind === 'missed' ? '[Cuộc gọi nhỡ]' : '[Cuộc gọi đến]'
     if (replyTo.content.type === 'file') return `[File] ${replyTo.content.fileName}`
     if (replyTo.content.type === 'system') return replyTo.content.text
     return ''
