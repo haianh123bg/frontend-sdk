@@ -1,8 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useRef } from "react"
-import { EditorContent, EditorContext, useEditor, type Editor } from "@tiptap/react"
-import type { JSONContent } from "@tiptap/core"
+import { useEffect, useRef, useState } from "react"
+import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
 
 // --- Tiptap Core Extensions ---
 import { StarterKit } from "@tiptap/starter-kit"
@@ -15,6 +14,15 @@ import { Subscript } from "@tiptap/extension-subscript"
 import { Superscript } from "@tiptap/extension-superscript"
 import { Selection } from "@tiptap/extensions"
 
+// --- UI Primitives ---
+import { Button } from "@/components/tiptap-ui-primitive/button"
+import { Spacer } from "@/components/tiptap-ui-primitive/spacer"
+import {
+  Toolbar,
+  ToolbarGroup,
+  ToolbarSeparator,
+} from "@/components/tiptap-ui-primitive/toolbar"
+
 // --- Tiptap Node ---
 import { ImageUploadNode } from "@/components/tiptap-node/image-upload-node/image-upload-node-extension"
 import { HorizontalRule } from "@/components/tiptap-node/horizontal-rule-node/horizontal-rule-node-extension"
@@ -26,7 +34,38 @@ import "@/components/tiptap-node/image-node/image-node.scss"
 import "@/components/tiptap-node/heading-node/heading-node.scss"
 import "@/components/tiptap-node/paragraph-node/paragraph-node.scss"
 
-import { NotionBlockToolbar } from "@/components/tiptap-templates/simple/notion-block-toolbar"
+// --- Tiptap UI ---
+import { HeadingDropdownMenu } from "@/components/tiptap-ui/heading-dropdown-menu"
+import { ImageUploadButton } from "@/components/tiptap-ui/image-upload-button"
+import { ListDropdownMenu } from "@/components/tiptap-ui/list-dropdown-menu"
+import { BlockquoteButton } from "@/components/tiptap-ui/blockquote-button"
+import { CodeBlockButton } from "@/components/tiptap-ui/code-block-button"
+import {
+  ColorHighlightPopover,
+  ColorHighlightPopoverContent,
+  ColorHighlightPopoverButton,
+} from "@/components/tiptap-ui/color-highlight-popover"
+import {
+  LinkPopover,
+  LinkContent,
+  LinkButton,
+} from "@/components/tiptap-ui/link-popover"
+import { MarkButton } from "@/components/tiptap-ui/mark-button"
+import { TextAlignButton } from "@/components/tiptap-ui/text-align-button"
+import { UndoRedoButton } from "@/components/tiptap-ui/undo-redo-button"
+
+// --- Icons ---
+import { ArrowLeftIcon } from "@/components/tiptap-icons/arrow-left-icon"
+import { HighlighterIcon } from "@/components/tiptap-icons/highlighter-icon"
+import { LinkIcon } from "@/components/tiptap-icons/link-icon"
+
+// --- Hooks ---
+import { useIsBreakpoint } from "@/hooks/use-is-breakpoint"
+import { useWindowSize } from "@/hooks/use-window-size"
+import { useCursorVisibility } from "@/hooks/use-cursor-visibility"
+
+// --- Components ---
+import { ThemeToggle } from "@/components/tiptap-templates/simple/theme-toggle"
 
 // --- Lib ---
 import { handleImageUpload, MAX_FILE_SIZE } from "@/lib/tiptap-utils"
@@ -34,143 +73,207 @@ import { handleImageUpload, MAX_FILE_SIZE } from "@/lib/tiptap-utils"
 // --- Styles ---
 import "@/components/tiptap-templates/simple/simple-editor.scss"
 
-export interface SimpleEditorPropsHtml {
-  contentType: "html"
-  value?: string
-  defaultValue?: string
-  applyValue?: string
-  applyValueKey?: string | number
-  onValueChange?: (value: string) => void
-}
+import content from "@/components/tiptap-templates/simple/data/content.json"
 
-export interface SimpleEditorPropsJson {
-  contentType?: "json"
-  value?: JSONContent
-  defaultValue?: JSONContent
-  applyValue?: JSONContent
-  applyValueKey?: string | number
-  onValueChange?: (value: JSONContent) => void
-}
+const MainToolbarContent = ({
+  onHighlighterClick,
+  onLinkClick,
+  isMobile,
+}: {
+  onHighlighterClick: () => void
+  onLinkClick: () => void
+  isMobile: boolean
+}) => {
+  return (
+    <>
+      <Spacer />
 
-export type SimpleEditorProps = SimpleEditorPropsHtml | SimpleEditorPropsJson
+      <ToolbarGroup>
+        <UndoRedoButton action="undo" />
+        <UndoRedoButton action="redo" />
+      </ToolbarGroup>
 
-const EMPTY_DOC: JSONContent = { type: "doc", content: [] }
+      <ToolbarSeparator />
 
-export function SimpleEditor(props: SimpleEditorProps) {
-  const { contentType = "json", value, defaultValue, onValueChange } = props
-  const editorContainerRef = useRef<HTMLDivElement>(null)
+      <ToolbarGroup>
+        <HeadingDropdownMenu levels={[1, 2, 3, 4]} portal={isMobile} />
+        <ListDropdownMenu
+          types={["bulletList", "orderedList", "taskList"]}
+          portal={isMobile}
+        />
+        <BlockquoteButton />
+        <CodeBlockButton />
+      </ToolbarGroup>
 
-  const applyValue = "applyValue" in props ? props.applyValue : undefined
-  const applyValueKey = "applyValueKey" in props ? props.applyValueKey : undefined
+      <ToolbarSeparator />
 
-  const initialValue =
-    applyValue ??
-    value ??
-    defaultValue ??
-    (contentType === "json" ? (EMPTY_DOC as SimpleEditorPropsJson["value"]) : ("" as SimpleEditorPropsHtml["value"]))
-  const rafEmitRef = useRef<number | null>(null)
-  const onValueChangeRef = useRef<SimpleEditorProps["onValueChange"]>(onValueChange)
-  const initialContentRef = useRef<string | JSONContent>(initialValue as string | JSONContent)
+      <ToolbarGroup>
+        <MarkButton type="bold" />
+        <MarkButton type="italic" />
+        <MarkButton type="strike" />
+        <MarkButton type="code" />
+        <MarkButton type="underline" />
+        {!isMobile ? (
+          <ColorHighlightPopover />
+        ) : (
+          <ColorHighlightPopoverButton onClick={onHighlighterClick} />
+        )}
+        {!isMobile ? <LinkPopover /> : <LinkButton onClick={onLinkClick} />}
+      </ToolbarGroup>
 
-  const lastAppliedKeyRef = useRef<string | number | undefined>(applyValueKey)
+      <ToolbarSeparator />
 
-  // Ref có thể gán trực tiếp mỗi render, không cần useEffect
-  onValueChangeRef.current = onValueChange
+      <ToolbarGroup>
+        <MarkButton type="superscript" />
+        <MarkButton type="subscript" />
+      </ToolbarGroup>
 
-  const editorOptions = useMemo(
-    () => ({
-      immediatelyRender: false,
-      editorProps: {
-        attributes: {
-          autocomplete: "off",
-          autocorrect: "off",
-          autocapitalize: "off",
-          "aria-label": "Main content area, start typing to enter text.",
-          class: "simple-editor",
-        },
-      },
-      extensions: [
-        StarterKit.configure({
-          horizontalRule: false,
-          link: {
-            openOnClick: false,
-            enableClickSelection: true,
-          },
-        }),
-        HorizontalRule,
-        TextAlign.configure({ types: ["heading", "paragraph"] }),
-        TaskList,
-        TaskItem.configure({ nested: true }),
-        Highlight.configure({ multicolor: true }),
-        Image,
-        Typography,
-        Superscript,
-        Subscript,
-        Selection,
-        ImageUploadNode.configure({
-          accept: "image/*",
-          maxSize: MAX_FILE_SIZE,
-          limit: 3,
-          upload: handleImageUpload,
-          onError: (error) => console.error("Upload failed:", error),
-        }),
-      ],
-      // Chỉ dùng cho initial mount; các thay đổi value về sau sẽ sync bằng effect bên dưới.
-      content: initialContentRef.current,
-      onUpdate: ({ editor }: { editor: Editor }) => {
-        if (rafEmitRef.current) return
-        rafEmitRef.current = requestAnimationFrame(() => {
-          rafEmitRef.current = null
-          const cb = onValueChangeRef.current
-          if (!cb) return
+      <ToolbarSeparator />
 
-          if (contentType === "json") {
-            const json = editor.getJSON() as JSONContent
-            ;(cb as SimpleEditorPropsJson["onValueChange"])?.(json)
-            return
-          }
+      <ToolbarGroup>
+        <TextAlignButton align="left" />
+        <TextAlignButton align="center" />
+        <TextAlignButton align="right" />
+        <TextAlignButton align="justify" />
+      </ToolbarGroup>
 
-          const html = editor.getHTML()
-          ;(cb as SimpleEditorPropsHtml["onValueChange"])?.(html)
-        })
-      },
-    }),
-    []
+      <ToolbarSeparator />
+
+      <ToolbarGroup>
+        <ImageUploadButton text="Add" />
+      </ToolbarGroup>
+
+      <Spacer />
+
+      {isMobile && <ToolbarSeparator />}
+
+      <ToolbarGroup>
+        <ThemeToggle />
+      </ToolbarGroup>
+    </>
   )
+}
 
-  const editor = useEditor(editorOptions, [])
+const MobileToolbarContent = ({
+  type,
+  onBack,
+}: {
+  type: "highlighter" | "link"
+  onBack: () => void
+}) => (
+  <>
+    <ToolbarGroup>
+      <Button data-style="ghost" onClick={onBack}>
+        <ArrowLeftIcon className="tiptap-button-icon" />
+        {type === "highlighter" ? (
+          <HighlighterIcon className="tiptap-button-icon" />
+        ) : (
+          <LinkIcon className="tiptap-button-icon" />
+        )}
+      </Button>
+    </ToolbarGroup>
 
-  // Unmanaged mode: KHÔNG sync ngược từ value để tránh giật khi gõ nhanh.
-  // Chỉ apply nội dung từ ngoài khi caller chủ động tăng applyValueKey (ví dụ AI chỉnh sửa).
+    <ToolbarSeparator />
+
+    {type === "highlighter" ? (
+      <ColorHighlightPopoverContent />
+    ) : (
+      <LinkContent />
+    )}
+  </>
+)
+
+export function SimpleEditor() {
+  const isMobile = useIsBreakpoint()
+  const { height } = useWindowSize()
+  const [mobileView, setMobileView] = useState<"main" | "highlighter" | "link">(
+    "main"
+  )
+  const toolbarRef = useRef<HTMLDivElement>(null)
+
+  const editor = useEditor({
+    immediatelyRender: false,
+    editorProps: {
+      attributes: {
+        autocomplete: "off",
+        autocorrect: "off",
+        autocapitalize: "off",
+        "aria-label": "Main content area, start typing to enter text.",
+        class: "simple-editor",
+      },
+    },
+    extensions: [
+      StarterKit.configure({
+        horizontalRule: false,
+        link: {
+          openOnClick: false,
+          enableClickSelection: true,
+        },
+      }),
+      HorizontalRule,
+      TextAlign.configure({ types: ["heading", "paragraph"] }),
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      Highlight.configure({ multicolor: true }),
+      Image,
+      Typography,
+      Superscript,
+      Subscript,
+      Selection,
+      ImageUploadNode.configure({
+        accept: "image/*",
+        maxSize: MAX_FILE_SIZE,
+        limit: 3,
+        upload: handleImageUpload,
+        onError: (error) => console.error("Upload failed:", error),
+      }),
+    ],
+    content,
+  })
+
+  const rect = useCursorVisibility({
+    editor,
+    overlayHeight: toolbarRef.current?.getBoundingClientRect().height ?? 0,
+  })
+
   useEffect(() => {
-    if (!editor) return
-    if (applyValueKey == null) return
-    if (applyValueKey === lastAppliedKeyRef.current) return
-    lastAppliedKeyRef.current = applyValueKey
-
-    const next = applyValue ?? (contentType === "json" ? EMPTY_DOC : "")
-    editor.commands.setContent(next as string | JSONContent, { emitUpdate: false })
-  }, [editor, applyValueKey, applyValue, contentType])
-
-  useEffect(() => {
-    return () => {
-      if (rafEmitRef.current) cancelAnimationFrame(rafEmitRef.current)
+    if (!isMobile && mobileView !== "main") {
+      setMobileView("main")
     }
-  }, [])
-
-  const editorContextValue = useMemo(() => ({ editor }), [editor])
+  }, [isMobile, mobileView])
 
   return (
     <div className="simple-editor-wrapper">
-      <EditorContext.Provider value={editorContextValue}>
-        <div ref={editorContainerRef} className="relative">
-          <NotionBlockToolbar editor={editor} containerRef={editorContainerRef} />
-          <EditorContent
-            editor={editor}
-            role="presentation"
-            className="simple-editor-content"
-          />
-        </div>
+      <EditorContext.Provider value={{ editor }}>
+        <Toolbar
+          ref={toolbarRef}
+          style={{
+            ...(isMobile
+              ? {
+                  bottom: `calc(100% - ${height - rect.y}px)`,
+                }
+              : {}),
+          }}
+        >
+          {mobileView === "main" ? (
+            <MainToolbarContent
+              onHighlighterClick={() => setMobileView("highlighter")}
+              onLinkClick={() => setMobileView("link")}
+              isMobile={isMobile}
+            />
+          ) : (
+            <MobileToolbarContent
+              type={mobileView === "highlighter" ? "highlighter" : "link"}
+              onBack={() => setMobileView("main")}
+            />
+          )}
+        </Toolbar>
+
+        <EditorContent
+          editor={editor}
+          role="presentation"
+          className="simple-editor-content"
+        />
       </EditorContext.Provider>
     </div>
   )

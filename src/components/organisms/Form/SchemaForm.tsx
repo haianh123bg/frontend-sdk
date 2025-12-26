@@ -200,15 +200,29 @@ function getValueAtPath(values: Record<string, any>, path: string) {
   return path.split('.').reduce<any>((acc, key) => acc?.[key], values)
 }
 
+function isIndexKey(key: string) {
+  return /^[0-9]+$/.test(key)
+}
+
 function setErrorAtPath(errors: Record<string, any>, path: string, message: string) {
-  const parts = path.split('.')
+  const parts = path.split('.').filter(Boolean)
+  if (!parts.length) return
+
   let cur: any = errors
   for (let i = 0; i < parts.length - 1; i++) {
-    const key = parts[i]
-    if (!cur[key] || typeof cur[key] !== 'object') cur[key] = {}
+    const rawKey = parts[i]
+    const rawNext = parts[i + 1]
+    const key: any = isIndexKey(rawKey) ? Number(rawKey) : rawKey
+    const nextIsIndex = isIndexKey(rawNext)
+
+    if (cur[key] === undefined || cur[key] === null || typeof cur[key] !== 'object') {
+      cur[key] = nextIsIndex ? [] : {}
+    }
     cur = cur[key]
   }
-  const last = parts[parts.length - 1]
+
+  const rawLast = parts[parts.length - 1]
+  const last: any = isIndexKey(rawLast) ? Number(rawLast) : rawLast
   cur[last] = { type: 'schema', message }
 }
 
@@ -555,7 +569,12 @@ function createSchemaResolver(schema: FormObjectSchema): Resolver<any> {
         }
 
         if (itemSchema.type === SchemaType.ARRAY) {
-          validateArraySchema({ fieldSchema: itemSchema, fieldPath: itemPath, value: itemValue, required: false })
+          validateArraySchema({
+            fieldSchema: itemSchema,
+            fieldPath: itemPath,
+            value: itemValue,
+            required: hasRequiredRule(itemSchema),
+          })
           continue
         }
 
@@ -729,14 +748,51 @@ function SchemaArrayField(params: {
   const canAdd = !disabled && (maxItems === undefined || helpers.fields.length < maxItems)
   const canRemove = (index: number) => !disabled && helpers.fields.length > Math.max(0, minItems) && index >= 0
 
+  const removeDisabledReason = !disabled && minItems > 0 ? `Không thể xoá vì minItems=${minItems}` : undefined
+  const addDisabledReason = !disabled && maxItems !== undefined ? `Không thể thêm vì maxItems=${maxItems}` : undefined
+
+  const itemsValue = (getValueAtPath(values, name) ?? []) as any[]
+  const resolveItemTitle = (index: number) => {
+    if (itemSchema.type !== SchemaType.OBJECT) return undefined
+    const v = itemsValue?.[index]
+    if (!v || typeof v !== 'object') return undefined
+
+    const preferredKeys = ['title', 'name', 'fullName', 'label', 'code', 'id']
+    for (const k of preferredKeys) {
+      const vv = v?.[k]
+      if (typeof vv === 'string' && vv.trim()) return vv
+      if (typeof vv === 'number') return String(vv)
+    }
+
+    const firstKey = orderedKeysForObjectSchema(itemSchema)[0]
+    const firstValue = firstKey ? v?.[firstKey] : undefined
+    if (typeof firstValue === 'string' && firstValue.trim()) return firstValue
+    if (typeof firstValue === 'number') return String(firstValue)
+    return undefined
+  }
+
   const appendItem = () => {
     helpers.append(buildDefaultValueForSchema(itemSchema) as any)
   }
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
-        <Button type="button" variant="secondary" size="sm" disabled={!canAdd} onClick={appendItem}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-xs text-text-secondary">
+          <span>
+            {helpers.fields.length} mục
+            {minItems ? ` (min ${minItems})` : ''}
+            {maxItems !== undefined ? ` (max ${maxItems})` : ''}
+          </span>
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          disabled={!canAdd}
+          title={!canAdd ? addDisabledReason : undefined}
+          onClick={appendItem}
+        >
           Thêm
         </Button>
       </div>
@@ -744,10 +800,22 @@ function SchemaArrayField(params: {
       <div className="space-y-3">
         {helpers.fields.map((f, index) => {
           const basePath = `${name}.${index}`
+          const title = resolveItemTitle(index)
           return (
             <div key={f.id} className="rounded-2xl border border-slate-200 bg-surface p-4">
-              <div className="mb-3 flex justify-end">
-                <Button type="button" variant="ghost" size="sm" disabled={!canRemove(index)} onClick={() => helpers.remove(index)}>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="text-sm font-medium text-text-primary">
+                  <span>#{index + 1}</span>
+                  {title ? <span className="ml-2 text-text-secondary">{title}</span> : null}
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={!canRemove(index)}
+                  title={!canRemove(index) ? removeDisabledReason : undefined}
+                  onClick={() => helpers.remove(index)}
+                >
                   Xoá
                 </Button>
               </div>

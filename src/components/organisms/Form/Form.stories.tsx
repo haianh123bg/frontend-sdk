@@ -107,6 +107,240 @@ export const WithZodAndErrors: Story = {
   },
 }
 
+export const SchemaDrivenNestedObject: Story = {
+  render: () => {
+    const schema: FormObjectSchema = {
+      type: SchemaType.OBJECT,
+      properties: {
+        profile: {
+          type: SchemaType.OBJECT,
+          title: 'Profile',
+          propertyOrdering: ['firstName', 'lastName', 'email'],
+          required: ['firstName', 'lastName'],
+          properties: {
+            firstName: {
+              type: SchemaType.STRING,
+              title: 'First name',
+              ui: { placeholder: 'Nguyễn', width: { xs: 12, sm: 4 } },
+              validation: [{ type: 'required', message: 'First name là bắt buộc' }],
+            },
+            lastName: {
+              type: SchemaType.STRING,
+              title: 'Last name',
+              ui: { placeholder: 'Văn A', width: { xs: 12, sm: 4 } },
+              validation: [{ type: 'required', message: 'Last name là bắt buộc' }],
+            },
+            email: {
+              type: SchemaType.STRING,
+              title: 'Email',
+              format: 'email',
+              ui: { placeholder: 'a@company.com', width: { xs: 12, sm: 4 } },
+              validation: [{ type: 'email', message: 'Email không hợp lệ' }],
+            },
+          },
+        },
+        address: {
+          type: SchemaType.OBJECT,
+          title: 'Address',
+          propertyOrdering: ['country', 'city', 'street', 'zipCode'],
+          properties: {
+            country: {
+              type: SchemaType.STRING,
+              title: 'Country',
+              ui: { placeholder: 'Chọn quốc gia', width: { xs: 12, sm: 6 } },
+              options: {
+                type: OptionSourceType.STATIC,
+                options: [
+                  { id: 'vn', label: 'Việt Nam' },
+                  { id: 'sg', label: 'Singapore' },
+                  { id: 'us', label: 'United States' },
+                ],
+              },
+            },
+            city: {
+              type: SchemaType.STRING,
+              title: 'City',
+              ui: { placeholder: 'Hà Nội', width: { xs: 12, sm: 6 } },
+            },
+            street: {
+              type: SchemaType.STRING,
+              title: 'Street',
+              ui: { placeholder: 'Số nhà, đường...', width: { xs: 12, sm: 8 } },
+            },
+            zipCode: {
+              type: SchemaType.STRING,
+              title: 'Zip code',
+              ui: { placeholder: '100000', width: { xs: 12, sm: 4 } },
+              pattern: '^[0-9]{4,10}$',
+            },
+          },
+        },
+      },
+      propertyOrdering: ['profile', 'address'],
+    }
+
+    return (
+      <SchemaForm
+        schema={schema}
+        className="space-y-4 rounded-2xl bg-surface p-6 shadow-sm"
+        onSubmit={(values: any) => {
+          alert(JSON.stringify(values, null, 2))
+        }}
+        renderFooter={() => (
+          <Button type="submit" className="w-full">
+            Submit
+          </Button>
+        )}
+      />
+    )
+  },
+}
+
+export const SchemaDrivenVisibilityAndReadonly: Story = {
+  render: () => {
+    const schema: FormObjectSchema = {
+      type: SchemaType.OBJECT,
+      properties: {
+        mode: {
+          type: SchemaType.STRING,
+          title: 'Mode',
+          ui: { placeholder: 'Chọn chế độ', width: { xs: 12, sm: 4 } },
+          options: {
+            type: OptionSourceType.STATIC,
+            options: [
+              { id: 'auto', label: 'Auto' },
+              { id: 'manual', label: 'Manual' },
+              { id: 'danger', label: 'Danger' },
+            ],
+          },
+          default: 'auto',
+        },
+        systemCode: {
+          type: SchemaType.STRING,
+          title: 'System code (readOnly)',
+          ui: { placeholder: 'AUTO-001', width: { xs: 12, sm: 4 }, readOnly: true },
+          default: 'AUTO-001',
+        },
+        notify: {
+          type: SchemaType.BOOLEAN,
+          title: 'Notify via email',
+          ui: { width: { xs: 12, sm: 4 } },
+        },
+        email: {
+          type: SchemaType.STRING,
+          title: 'Email',
+          format: 'email',
+          ui: { placeholder: 'a@company.com', width: { xs: 12, sm: 6 } },
+          visibility: [
+            { when: { field: 'notify', op: '=', value: true }, effect: 'show' },
+            { when: { field: 'notify', op: '=', value: true }, effect: 'require' },
+            { when: { field: 'notify', op: '!=', value: true }, effect: 'unrequire' },
+          ],
+          validation: [{ type: 'email', message: 'Email không hợp lệ' }],
+        },
+        manualReason: {
+          type: SchemaType.STRING,
+          title: 'Manual reason',
+          ui: { widget: 'textarea', rows: 3, placeholder: 'Vì sao chọn manual...', width: 12 },
+          visibility: [
+            { when: { field: 'mode', op: '=', value: 'manual' }, effect: 'show' },
+            { when: { field: 'mode', op: '=', value: 'manual' }, effect: 'require' },
+          ],
+          validation: [{ type: 'required', message: 'Vui lòng nhập lý do' }],
+        },
+        quota: {
+          type: SchemaType.INTEGER,
+          title: 'Quota',
+          ui: { placeholder: '0-100', width: { xs: 12, sm: 6 } },
+          minimum: 0,
+          maximum: 100,
+          visibility: [{ when: { field: 'mode', op: '=', value: 'auto' }, effect: 'disable' }],
+        },
+        acceptDanger: {
+          type: SchemaType.BOOLEAN,
+          title: 'Tôi hiểu và đồng ý (danger)',
+          ui: { width: 12 },
+          visibility: [
+            { when: { field: 'mode', op: '=', value: 'danger' }, effect: 'show' },
+            { when: { field: 'mode', op: '=', value: 'danger' }, effect: 'require' },
+          ],
+        },
+      },
+      required: ['mode'],
+      propertyOrdering: ['mode', 'systemCode', 'notify', 'email', 'manualReason', 'quota', 'acceptDanger'],
+    }
+
+    return (
+      <SchemaForm
+        schema={schema}
+        className="space-y-4 rounded-2xl bg-surface p-6 shadow-sm"
+        onSubmit={(values: any) => {
+          alert(JSON.stringify(values, null, 2))
+        }}
+        renderFooter={() => (
+          <Button type="submit" className="w-full">
+            Submit
+          </Button>
+        )}
+      />
+    )
+  },
+}
+
+export const SchemaDrivenValidationShowcase: Story = {
+  render: () => {
+    const schema: FormObjectSchema = {
+      type: SchemaType.OBJECT,
+      properties: {
+        username: {
+          type: SchemaType.STRING,
+          title: 'Username',
+          ui: { placeholder: 'your_name', width: { xs: 12, sm: 6 } },
+          minLength: '3',
+          maxLength: '20',
+          pattern: '^[a-zA-Z0-9_]+$',
+          validation: [{ type: 'required', message: 'Username là bắt buộc' }],
+        },
+        age: {
+          type: SchemaType.INTEGER,
+          title: 'Age',
+          ui: { placeholder: '18-60', width: { xs: 12, sm: 6 } },
+          validation: [{ type: 'number_range', min: 18, max: 60, message: 'Tuổi phải từ 18 đến 60' }],
+        },
+        website: {
+          type: SchemaType.STRING,
+          title: 'Website',
+          ui: { placeholder: 'https://example.com', width: 12 },
+          validation: [{ type: 'regex', pattern: '^https?://.+', message: 'Website phải bắt đầu bằng http/https' }],
+        },
+        bio: {
+          type: SchemaType.STRING,
+          title: 'Bio',
+          ui: { widget: 'textarea', rows: 4, placeholder: 'Giới thiệu ngắn...', width: 12 },
+          maxLength: '200',
+        },
+      },
+      required: ['username'],
+      propertyOrdering: ['username', 'age', 'website', 'bio'],
+    }
+
+    return (
+      <SchemaForm
+        schema={schema}
+        className="space-y-4 rounded-2xl bg-surface p-6 shadow-sm"
+        onSubmit={(values: any) => {
+          alert(JSON.stringify(values, null, 2))
+        }}
+        renderFooter={() => (
+          <Button type="submit" className="w-full">
+            Submit
+          </Button>
+        )}
+      />
+    )
+  },
+}
+
 export const SchemaDriven: Story = {
   render: () => {
     const schema: FormObjectSchema = {

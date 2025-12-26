@@ -1,7 +1,9 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react"
+import { useEffect, useMemo, useRef, useState, type RefObject, type MouseEvent as ReactMouseEvent } from "react"
 import type { Editor } from "@tiptap/react"
+import { TextSelection } from "@tiptap/pm/state"
+
 import { MenuDropdown, type MenuDropdownOption } from "../../../../components/molecules/MenuDropdown/MenuDropdown"
 import { selectCurrentBlockContent } from "@/lib/tiptap-utils"
 
@@ -14,7 +16,15 @@ const GUTTER_PAD_X = 6
 const GUTTER_PAD_Y = 2
 
 const PlusIcon = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
     <path d="M12 5v14" />
     <path d="M5 12h14" />
   </svg>
@@ -43,19 +53,22 @@ export function NotionBlockToolbar({ editor, containerRef }: NotionBlockToolbarP
   const [menuPinnedOpen, setMenuPinnedOpen] = useState(false)
   const [hovering, setHovering] = useState(false)
   const [focused, setFocused] = useState(false)
-  const [menuDismissed, setMenuDismissed] = useState(false)
 
   const selectionActiveRef = useRef(false)
   const menuPinnedOpenRef = useRef(false)
   const hoveringRef = useRef(false)
   const focusedRef = useRef(false)
-  const menuDismissedRef = useRef(false)
   const lastSelectionKeyRef = useRef<string>("")
 
   const activeBlockElRef = useRef<HTMLElement | null>(null)
   const activeTopLevelPosRef = useRef<number | null>(null)
   const rafRef = useRef<number | null>(null)
   const lastAnchorRef = useRef<Anchor | null>(null)
+
+  const draggingRef = useRef(false)
+  const dragSessionRef = useRef<{ startX: number; startY: number; fromPos: number } | null>(null)
+
+  const DRAG_THRESHOLD_PX = 5
 
   const options = useMemo<MenuDropdownOption[]>(
     () => [
@@ -108,7 +121,7 @@ export function NotionBlockToolbar({ editor, containerRef }: NotionBlockToolbarP
     }
 
     return pick(
-      "div[data-type=\"image-upload\"]",
+      'div[data-type="image-upload"]',
       ".tiptap-thread",
       "img",
       "table",
@@ -146,16 +159,10 @@ export function NotionBlockToolbar({ editor, containerRef }: NotionBlockToolbarP
     const containerRect = containerEl.getBoundingClientRect()
     const blockRect = blockEl.getBoundingClientRect()
 
-    // Không clamp min X để gutter có thể nằm hẳn bên trái vùng text (tránh che chữ)
     const x = Math.min(containerRect.width - GUTTER_PAD_X, blockRect.left - containerRect.left - GUTTER_OFFSET_X)
     const y = clamp(blockRect.top - containerRect.top - GUTTER_PAD_Y, 0, containerRect.height)
 
     setAnchorIfChanged({ x, y })
-  }
-
-  const setMenuDismissedSafe = (next: boolean) => {
-    menuDismissedRef.current = next
-    setMenuDismissed(next)
   }
 
   const setMenuPinnedOpenSafe = (next: boolean) => {
@@ -189,27 +196,171 @@ export function NotionBlockToolbar({ editor, containerRef }: NotionBlockToolbarP
     scheduleUpdateFromBlockEl(nextEl)
   }
 
+  const getTopLevelPosFromBlockEl = (blockEl: HTMLElement | null): number | null => {
+    if (!editor) return null
+    if (!blockEl) return null
+    try {
+      const pos = editor.view.posAtDOM(blockEl, 0)
+      const $pos = editor.state.doc.resolve(pos)
+      if ($pos.depth < 1) return null
+      return $pos.before(1)
+    } catch {
+      return null
+    }
+  }
+
+  const getTopLevelPosFromCoords = (clientX: number, clientY: number): number | null => {
+    if (!editor) return null
+    try {
+      const found = editor.view.posAtCoords({ left: clientX, top: clientY })
+      if (!found) return null
+      const $pos = editor.state.doc.resolve(found.pos)
+      if ($pos.depth < 1) return null
+      return $pos.before(1)
+    } catch {
+      return null
+    }
+  }
+
+  const getTopLevelPosFromPoint = (clientX: number, clientY: number): number | null => {
+    if (!editor) return null
+    const byCoords = getTopLevelPosFromCoords(clientX, clientY)
+    if (byCoords != null) return byCoords
+
+    const elAtPoint = document.elementFromPoint(clientX, clientY)
+    if (!elAtPoint) return null
+    const blockEl = getBlockElementFromDom(elAtPoint)
+    return getTopLevelPosFromBlockEl(blockEl)
+  }
+
+  const moveTopLevelNode = (fromPos: number, targetPos: number, placeAfter: boolean) => {
+    if (!editor) return
+    const { state } = editor
+    const { doc } = state
+    const node = doc.nodeAt(fromPos)
+    if (!node) return
+
+    const fromStart = fromPos
+    const fromEnd = fromPos + node.nodeSize
+
+    const targetNode = doc.nodeAt(targetPos)
+    if (!targetNode) return
+
+    let insertPos = placeAfter ? targetPos + targetNode.nodeSize : targetPos
+
+    // Không move nếu thả vào chính nó hoặc vào trong vùng của nó
+    if (insertPos >= fromStart && insertPos <= fromEnd) return
+
+    // Nếu xoá trước khi insert ở phía sau thì phải trừ nodeSize
+    if (fromStart < insertPos) {
+      insertPos -= node.nodeSize
+    }
+
+    const tr = state.tr
+      .deleteRange(fromStart, fromEnd)
+      .insert(insertPos, node)
+
+    // Set selection về block vừa move để UX rõ ràng
+    const nextSelPos = Math.min(insertPos + 1, tr.doc.content.size)
+    tr.setSelection(TextSelection.near(tr.doc.resolve(nextSelPos)))
+
+    editor.view.dispatch(tr)
+    editor.view.focus()
+  }
+
+  const handleDragMouseDown = (e: ReactMouseEvent<HTMLButtonElement>) => {
+    if (!editor) return
+    e.preventDefault()
+    e.stopPropagation()
+
+    // Grip button: click => mở menu. Drag => reorder.
+    setMenuPinnedOpenSafe(false)
+
+    // Xác định block bắt đầu drag theo đúng vị trí con trỏ
+    const fromPos =
+      getTopLevelPosFromPoint(e.clientX, e.clientY) ??
+      getTopLevelPosFromBlockEl(activeBlockElRef.current) ??
+      (editor.state.selection.$from.depth >= 1 ? editor.state.selection.$from.before(1) : null)
+    if (fromPos == null) return
+
+    dragSessionRef.current = { startX: e.clientX, startY: e.clientY, fromPos }
+    draggingRef.current = false
+
+    const onMove = (ev: MouseEvent) => {
+      const s = dragSessionRef.current
+      if (!s) return
+      if (draggingRef.current) return
+
+      const dx = ev.clientX - s.startX
+      const dy = ev.clientY - s.startY
+      if (Math.abs(dx) < DRAG_THRESHOLD_PX && Math.abs(dy) < DRAG_THRESHOLD_PX) return
+
+      // Bắt đầu drag thực sự
+      draggingRef.current = true
+      setMenuPinnedOpenSafe(false)
+    }
+
+    const onUp = (ev: MouseEvent) => {
+      const s = dragSessionRef.current
+      dragSessionRef.current = null
+
+      document.removeEventListener("mousemove", onMove)
+      document.removeEventListener("mouseup", onUp)
+
+      if (!s) return
+
+      // Không vượt ngưỡng => coi là click: mở menu
+      if (!draggingRef.current) {
+        setMenuPinnedOpenSafe(true)
+        return
+      }
+
+      draggingRef.current = false
+
+      const to = getTopLevelPosFromPoint(ev.clientX, ev.clientY)
+      if (to == null) return
+
+      // Quyết định thả trước/sau dựa vào Y so với giữa block
+      let placeAfter = false
+      try {
+        const found = editor.view.posAtCoords({ left: ev.clientX, top: ev.clientY })
+        const blockEl = found
+          ? getBlockElementFromDocPos(found.pos)
+          : getBlockElementFromDom(document.elementFromPoint(ev.clientX, ev.clientY))
+        if (blockEl) {
+          const rect = blockEl.getBoundingClientRect()
+          placeAfter = ev.clientY > rect.top + rect.height / 2
+        }
+      } catch {
+        // ignore
+      }
+
+      moveTopLevelNode(s.fromPos, to, placeAfter)
+    }
+
+    document.addEventListener("mousemove", onMove)
+    document.addEventListener("mouseup", onUp)
+  }
+
   useEffect(() => {
     if (!editor) return
 
     const onSelectionUpdate = () => {
+      if (draggingRef.current) return
       const sel = editor.state.selection
       const hasSelection = !sel.empty
 
-      // Tránh setState lặp lại liên tục khi đang gõ (selection vẫn empty)
       if (hasSelection !== selectionActiveRef.current) {
         selectionActiveRef.current = hasSelection
         setSelectionActive(hasSelection)
       }
 
-      // Khi đang gõ bình thường (selection empty), sel.from sẽ thay đổi theo từng ký tự.
-      // Nếu ta xử lý nextKey/menuDismissed/reposition ở đây sẽ gây re-render/đo DOM liên tục => lag.
-      // Reposition lúc hover đã do mousemove handle, còn lúc selection thật sẽ xử lý bên dưới.
+      // Khi đang gõ bình thường (selection empty), sel.from thay đổi theo từng ký tự.
+      // Không làm việc nặng ở đây để tránh lag.
       if (sel.empty && !menuPinnedOpenRef.current) {
         return
       }
 
-      // Nếu không có selection và không hover/menu, đừng chạy domAtPos mỗi keystroke
       if (!hasSelection && !menuPinnedOpenRef.current && !hoveringRef.current) {
         return
       }
@@ -217,10 +368,8 @@ export function NotionBlockToolbar({ editor, containerRef }: NotionBlockToolbarP
       const nextKey = `${sel.from}:${sel.to}`
       if (nextKey !== lastSelectionKeyRef.current) {
         lastSelectionKeyRef.current = nextKey
-        setMenuDismissedSafe(false)
       }
 
-      // Chỉ reposition khi đổi block top-level (giảm lag khi gõ trong cùng 1 block)
       const $from = sel.$from
       const nextTopLevelPos = $from.depth >= 1 ? $from.before(1) : sel.from
       if (activeTopLevelPosRef.current === nextTopLevelPos) return
@@ -232,7 +381,6 @@ export function NotionBlockToolbar({ editor, containerRef }: NotionBlockToolbarP
       const sel = editor.state.selection
       focusedRef.current = true
       setFocused(true)
-      setMenuDismissedSafe(false)
       activeTopLevelPosRef.current = null
       scheduleUpdateFromDocPos(sel.from)
     }
@@ -299,8 +447,6 @@ export function NotionBlockToolbar({ editor, containerRef }: NotionBlockToolbarP
         return
       }
 
-      // Nếu đang ở trong wrapper nhưng không nằm trong ProseMirror (vùng padding)
-      // thì vẫn coi là đang hover editor và giữ anchor hiện tại để tránh nháy.
       if (!dom.contains(target)) {
         if (!hoveringRef.current) {
           hoveringRef.current = true
@@ -344,7 +490,6 @@ export function NotionBlockToolbar({ editor, containerRef }: NotionBlockToolbarP
       if (!el) return
       if (el.contains(e.target as Node)) return
       setMenuPinnedOpenSafe(false)
-      setMenuDismissedSafe(true)
     }
 
     document.addEventListener("mousedown", onDown)
@@ -352,7 +497,8 @@ export function NotionBlockToolbar({ editor, containerRef }: NotionBlockToolbarP
   }, [])
 
   const showOverlay = !!anchor && (!!editor && (selectionActive || menuPinnedOpen || hovering || focused))
-  const showMenu = menuPinnedOpen || (!menuDismissed && selectionActive && focused)
+  // Menu chỉ mở khi user click vào icon (+ hoặc grip)
+  const showMenu = !draggingRef.current && menuPinnedOpen
 
   if (!editor) return null
   if (!showOverlay) return null
@@ -366,13 +512,12 @@ export function NotionBlockToolbar({ editor, containerRef }: NotionBlockToolbarP
       <div className="relative flex items-center gap-1 pointer-events-auto">
         <button
           type="button"
-          className="h-7 w-7 rounded-md bg-surface text-text-muted hover:bg-slate-100 hover:text-text-primary"
+          className="h-7 w-7 rounded-md bg-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-700"
           onMouseDown={(e) => {
             e.preventDefault()
             e.stopPropagation()
           }}
           onClick={() => {
-            setMenuDismissedSafe(false)
             setMenuPinnedOpenSafe(true)
             if (editor.state.selection.empty) {
               selectCurrentBlockContent(editor)
@@ -385,12 +530,8 @@ export function NotionBlockToolbar({ editor, containerRef }: NotionBlockToolbarP
 
         <button
           type="button"
-          className="h-7 w-7 cursor-grab rounded-md bg-surface text-text-muted hover:bg-slate-100 hover:text-text-primary"
-          onMouseDown={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            selectCurrentBlockContent(editor)
-          }}
+          className="h-7 w-7 cursor-grab rounded-md bg-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+          onMouseDown={handleDragMouseDown}
           aria-label="Drag"
         >
           <GripIcon className="h-4 w-4 mx-auto" />
@@ -420,7 +561,6 @@ export function NotionBlockToolbar({ editor, containerRef }: NotionBlockToolbarP
               else if (v === "italic") chain.toggleItalic().run()
 
               setMenuPinnedOpenSafe(false)
-              setMenuDismissedSafe(true)
             }}
           />
         )}

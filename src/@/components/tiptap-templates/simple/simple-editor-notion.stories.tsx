@@ -3,16 +3,16 @@ import type { Meta, StoryObj } from "@storybook/react"
 import "@/styles/_variables.scss"
 import "@/styles/_keyframe-animations.scss"
 
-import { SimpleEditor } from "./simple-editor"
+import { SimpleEditorNotion } from "./simple-editor-notion"
 
 const meta = {
-  title: "Tiptap/SimpleEditor (srcAt)",
-  component: SimpleEditor,
+  title: "Tiptap/SimpleEditor Notion (srcAt)",
+  component: SimpleEditorNotion,
   parameters: {
     layout: "fullscreen",
   },
   tags: ["autodocs"],
-} satisfies Meta<typeof SimpleEditor>
+} satisfies Meta<typeof SimpleEditorNotion>
 
 export default meta
 
