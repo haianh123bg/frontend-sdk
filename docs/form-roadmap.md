@@ -323,3 +323,53 @@ interface FormFieldControllerProps<TFieldValues extends FieldValues> {
 3. **V3** (nếu cần):
    - Helper `submitForm` / `useFormSubmit` tích hợp API.
    - Docs chi tiết + snippet cho người dùng SDK.
+
+## 7. Schema-driven Form (FormSchema / SchemaForm)
+
+### 7.1. Mục tiêu
+
+- Render UI form từ `FormObjectSchema`/`FormSchema` (không cần viết JSX thủ công).
+- Hỗ trợ rule:
+  - `visibility`: show/hide/enable/disable/require/unrequire theo values.
+  - `validation`: required/email/phone/regex/range/enum + file validations.
+- Hỗ trợ options source:
+  - `STATIC`, `API`, `TABLE`, `VIEW_QUERY`, `LOOKUP` (qua `optionsProvider`).
+- Backward compatible: schema cũ vẫn chạy, chỉ bổ sung field mới.
+
+### 7.2. Trạng thái hiện tại (DONE)
+
+- `src/forms/schema/schema.interface.ts`
+  - Đã bổ sung `format?: string` để map widget theo chuẩn (vd: `date`, `date-time`, `email`).
+- `src/forms/schema/formSchema.interface.ts`
+  - Đã bổ sung `ui.widget`, `ui.inputType`, `ui.rows`, `ui.file`.
+- `src/components/organisms/Form/SchemaForm.tsx`
+  - Render schema-driven form theo `FormObjectSchema`.
+  - Visibility engine (show/hide/enable/disable/require/unrequire).
+  - Validation engine (sync) + resolver cho RHF.
+  - Options source + `SelectLazy` (infinite scroll/search) + `optionsProvider` adapter.
+  - Widget mapping:
+    - `format: 'date'` -> `DatePicker`
+    - `format: 'date-time'` -> `DatetimePicker`
+    - `ui.widget: 'richtext'` -> `TiptapEditor`
+    - `ui.widget: 'file'` -> `FileUploader`
+    - `ui.widget: 'textarea'` -> `Textarea`
+  - File validation:
+    - `file_type` (allowedTypes hoặc fallback từ `ui.file.accept`)
+    - `file_size` (maxSizeBytes hoặc fallback từ `ui.file.maxSizeMb`)
+- Storybook
+  - `Form.stories.tsx` đã có story `SchemaDriven` demo select lazy + date/datetime + richtext + file.
+
+### 7.3. Kế hoạch nâng cấp tiếp theo (NEXT)
+
+1. **Typing nested schema chuẩn hơn**
+   - `FormSchema` override `items/properties/anyOf` để nested schema cũng là `FormSchema`.
+2. **Hỗ trợ `SchemaType.ARRAY` (repeater)**
+   - Render array primitive và array object:
+     - Add/remove item.
+     - Default item.
+     - Layout rõ ràng theo item.
+3. **Resolver validate đệ quy object/array**
+   - Validate `minItems/maxItems`, validate items theo `items` schema.
+   - Set error đúng path (vd `items.0.name`).
+4. **Storybook demo array**
+   - Bổ sung case array primitive + array object.

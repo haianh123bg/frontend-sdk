@@ -1,0 +1,167 @@
+ .rai-pattern-background {
+  width: 100%;
+  height: 100%;
+  --rai-pattern-color1: rgb(108, 231, 221);
+  --rai-pattern-color2: rgb(250, 255, 178);
+  --rai-pattern-size: 60px;
+  --rai-pattern-offset: calc(var(--rai-pattern-size) / 2);
+  --rai-pattern-dot-size: 2px;
+  --rai-pattern-line-size: 1px;
+  --rai-pattern-stripe-size: 10px;
+  --rai-pattern-conic-step: 12deg;
+  --rai-pattern-image: none;
+  --rai-pattern-image-size: cover;
+  --rai-pattern-image-repeat: no-repeat;
+  --rai-pattern-image-position: center;
+  --rai-pattern-scroll-duration: 20s;
+  --rai-pattern-scroll-x: 800px;
+  --rai-pattern-scroll-y: 0px;
+  --rai-pattern-follow-x: 0px;
+  --rai-pattern-follow-y: 0px;
+ }
+
+ .rai-pattern-background--checker {
+  background-color: var(--rai-pattern-color1);
+  background-image: linear-gradient(
+      45deg,
+      var(--rai-pattern-color2) 25%,
+      transparent 25%,
+      transparent 75%,
+      var(--rai-pattern-color2) 75%,
+      var(--rai-pattern-color2)
+    ),
+    linear-gradient(
+      45deg,
+      var(--rai-pattern-color2) 25%,
+      var(--rai-pattern-color1) 25%,
+      var(--rai-pattern-color1) 75%,
+      var(--rai-pattern-color2) 75%,
+      var(--rai-pattern-color2)
+    );
+  background-size: var(--rai-pattern-size) var(--rai-pattern-size);
+  background-position: 0 0, var(--rai-pattern-offset) var(--rai-pattern-offset);
+ }
+
+ .rai-pattern-background--dots {
+  background-color: var(--rai-pattern-color1);
+  background-image: radial-gradient(
+      circle,
+      var(--rai-pattern-color2) 0,
+      var(--rai-pattern-color2) var(--rai-pattern-dot-size),
+      transparent var(--rai-pattern-dot-size),
+      transparent 100%
+    ),
+    radial-gradient(
+      circle,
+      var(--rai-pattern-color2) 0,
+      var(--rai-pattern-color2) var(--rai-pattern-dot-size),
+      transparent var(--rai-pattern-dot-size),
+      transparent 100%
+    );
+  background-size: var(--rai-pattern-size) var(--rai-pattern-size);
+  background-position: 0 0, var(--rai-pattern-offset) var(--rai-pattern-offset);
+ }
+
+ .rai-pattern-background--grid {
+  background-color: var(--rai-pattern-color1);
+  background-image: linear-gradient(var(--rai-pattern-color2) var(--rai-pattern-line-size), transparent var(--rai-pattern-line-size)),
+    linear-gradient(90deg, var(--rai-pattern-color2) var(--rai-pattern-line-size), transparent var(--rai-pattern-line-size));
+  background-size: var(--rai-pattern-size) var(--rai-pattern-size);
+ }
+
+ .rai-pattern-background--diagonal-stripes {
+  background-color: var(--rai-pattern-color1);
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--rai-pattern-color2) 0,
+    var(--rai-pattern-color2) var(--rai-pattern-stripe-size),
+    transparent var(--rai-pattern-stripe-size),
+    transparent calc(var(--rai-pattern-stripe-size) * 2)
+  );
+ }
+
+ .rai-pattern-background--crosshatch {
+  background-color: var(--rai-pattern-color1);
+  background-image: repeating-linear-gradient(
+      45deg,
+      var(--rai-pattern-color2) 0,
+      var(--rai-pattern-color2) var(--rai-pattern-line-size),
+      transparent var(--rai-pattern-line-size),
+      transparent var(--rai-pattern-size)
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      var(--rai-pattern-color2) 0,
+      var(--rai-pattern-color2) var(--rai-pattern-line-size),
+      transparent var(--rai-pattern-line-size),
+      transparent var(--rai-pattern-size)
+    );
+ }
+
+ .rai-pattern-background--conic {
+  background-color: var(--rai-pattern-color1);
+  background-image: repeating-conic-gradient(
+    from 0deg,
+    var(--rai-pattern-color2) 0,
+    var(--rai-pattern-color2) var(--rai-pattern-conic-step),
+    transparent var(--rai-pattern-conic-step),
+    transparent calc(var(--rai-pattern-conic-step) * 2)
+  );
+  background-size: var(--rai-pattern-size) var(--rai-pattern-size);
+  background-position: center;
+ }
+
+ .rai-pattern-background--rings {
+  background-color: var(--rai-pattern-color1);
+  background-image: repeating-radial-gradient(
+    circle at center,
+    var(--rai-pattern-color2) 0,
+    var(--rai-pattern-color2) var(--rai-pattern-line-size),
+    transparent var(--rai-pattern-line-size),
+    transparent var(--rai-pattern-size)
+  );
+ }
+
+ .rai-pattern-background--image {
+  background-color: var(--rai-pattern-color1);
+  background-image: var(--rai-pattern-image);
+  background-repeat: var(--rai-pattern-image-repeat);
+  background-size: var(--rai-pattern-image-size);
+  background-position: var(--rai-pattern-image-position);
+ }
+
+ .rai-pattern-background--image-scroll {
+  background-color: var(--rai-pattern-color1);
+  background-image: var(--rai-pattern-image);
+  background-repeat: repeat;
+  background-size: var(--rai-pattern-image-size);
+  background-position: 0 0;
+  animation: rai-pattern-bg-scroll var(--rai-pattern-scroll-duration) linear infinite;
+ }
+
+ .rai-pattern-background--image-follow-scroll {
+  background-color: var(--rai-pattern-color1);
+  background-image: var(--rai-pattern-image);
+  background-repeat: var(--rai-pattern-image-repeat);
+  background-size: var(--rai-pattern-image-size);
+  background-position: var(--rai-pattern-follow-x) var(--rai-pattern-follow-y);
+ }
+
+ .rai-pattern-background--no-animate {
+  animation: none;
+ }
+
+ @keyframes rai-pattern-bg-scroll {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: var(--rai-pattern-scroll-x) var(--rai-pattern-scroll-y);
+  }
+ }
+
+ @media (prefers-reduced-motion: reduce) {
+  .rai-pattern-background--image-scroll {
+    animation: none;
+  }
+ }

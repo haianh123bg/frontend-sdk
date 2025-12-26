@@ -9,6 +9,7 @@ import { DatetimePicker } from '../../atoms/DatetimePicker/DatetimePicker'
 import { Checkbox } from '../../atoms/Checkbox/Checkbox'
 import { Button } from '../../atoms/Button/Button'
 import { SimpleEditor } from '../../../@/components/tiptap-templates/simple/simple-editor'
+import type { JSONContent } from '@tiptap/core'
 import {
   DndContext,
   closestCenter,
@@ -44,6 +45,20 @@ interface SortableFieldProps {
   field: KanbanFieldSchema
   children: React.ReactNode
   onFieldClick?: (field: KanbanFieldSchema) => void
+}
+
+const getCanvasJson = (raw: unknown): JSONContent => {
+  if (!raw) return { type: 'doc', content: [] }
+  if (typeof raw === 'object') return raw as JSONContent
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw)
+      if (parsed && typeof parsed === 'object') return parsed as JSONContent
+    } catch {
+      // ignore
+    }
+  }
+  return { type: 'doc', content: [] }
 }
 
 const SortableField = ({ field, children, onFieldClick }: SortableFieldProps) => {
@@ -310,8 +325,10 @@ export const KanbanItemDetail: React.FC<KanbanItemDetailProps> = ({
             <div className="mt-6 space-y-2">
               <div className="text-xs font-semibold uppercase tracking-wide text-text-muted">Canvas</div>
               <SimpleEditor
-                value={typeof item.data.canvas === 'string' ? item.data.canvas : ''}
-                onValueChange={(html) => handlePatch({ canvas: html })}
+                contentType="json"
+                applyValue={getCanvasJson(item.data.canvas)}
+                applyValueKey={item.id}
+                onValueChange={(json) => handlePatch({ canvas: json })}
               />
             </div>
           </>

@@ -11,6 +11,7 @@ import { DatePicker } from '../../atoms/DatePicker/DatePicker'
 import { DatetimePicker } from '../../atoms/DatetimePicker/DatetimePicker'
 import { Grid } from '../../atoms/Grid/Grid'
 import { Form } from './Form'
+import { SchemaForm } from './SchemaForm'
 import { FormField } from '../../molecules/FormField/FormField'
 import { FormErrorBanner } from '../../molecules/FormErrorBanner/FormErrorBanner'
 import { FormSubmitButton } from '../../molecules/FormSubmitButton/FormSubmitButton'
@@ -19,6 +20,7 @@ import { FormFieldController } from '../../molecules/FormField/FormFieldControll
 import { useZodForm } from '../../../forms/useZodForm'
 import { useApiForm } from '../../../forms/useApiForm'
 import { useFormWizard, type FormWizardStep } from '../../../forms/hooks/useFormWizard'
+import { OptionSourceType, SchemaType, type FormObjectSchema } from '../../../forms/schema'
 
 interface ContactFormValues {
   name: string
@@ -101,6 +103,213 @@ export const WithZodAndErrors: Story = {
           Send message
         </Button>
       </Form>
+    )
+  },
+}
+
+export const SchemaDriven: Story = {
+  render: () => {
+    const schema: FormObjectSchema = {
+      type: SchemaType.OBJECT,
+      properties: {
+        name: {
+          type: SchemaType.STRING,
+          title: 'Name',
+          ui: { placeholder: 'Jane Cooper', width: { xs: 12, sm: 6 } },
+          validation: [{ type: 'required', message: 'Name là bắt buộc' }],
+        },
+        email: {
+          type: SchemaType.STRING,
+          title: 'Email',
+          ui: { placeholder: 'jane@company.com', width: { xs: 12, sm: 6 } },
+          validation: [{ type: 'email', message: 'Email không hợp lệ' }],
+        },
+        role: {
+          type: SchemaType.STRING,
+          title: 'Role',
+          ui: { placeholder: 'Chọn role', width: { xs: 12, sm: 6 } },
+          options: {
+            type: OptionSourceType.STATIC,
+            options: [
+              { id: 'admin', label: 'Admin' },
+              { id: 'editor', label: 'Editor' },
+              { id: 'viewer', label: 'Viewer' },
+            ],
+          },
+          validation: [{ type: 'required', message: 'Role là bắt buộc' }],
+        },
+        department: {
+          type: SchemaType.STRING,
+          title: 'Department (lazy)',
+          ui: { placeholder: 'Chọn phòng ban', width: { xs: 12, sm: 6 } },
+          options: {
+            type: OptionSourceType.TABLE,
+            tableId: 'departments',
+            valueField: 'id',
+            labelField: 'name',
+            searchField: 'name',
+            limit: 50,
+          },
+        },
+        startDate: {
+          type: SchemaType.STRING,
+          title: 'Start date',
+          format: 'date',
+          ui: { placeholder: 'dd/mm/yyyy', width: { xs: 12, sm: 6 } },
+        },
+        meetingAt: {
+          type: SchemaType.STRING,
+          title: 'Meeting at',
+          format: 'date-time',
+          ui: { placeholder: 'dd/mm/yyyy hh:mm', width: { xs: 12, sm: 6 } },
+        },
+        description: {
+          type: SchemaType.STRING,
+          title: 'Description (richtext)',
+          ui: { widget: 'richtext', width: 12 },
+        },
+        attachments: {
+          type: SchemaType.STRING,
+          title: 'Attachments',
+          ui: {
+            widget: 'file',
+            width: 12,
+            file: { multiple: true, accept: 'image/*,.pdf', maxSizeMb: 5 },
+          },
+          validation: [
+            { type: 'file_type', allowedTypes: ['image/*', 'application/pdf'], message: 'Chỉ cho phép ảnh hoặc PDF' },
+            { type: 'file_size', maxSizeBytes: 5 * 1024 * 1024, message: 'Tối đa 5MB mỗi file' },
+          ],
+        },
+        accept: {
+          type: SchemaType.BOOLEAN,
+          title: 'Tôi đồng ý điều khoản',
+          ui: { width: 12 },
+          visibility: [{ when: { field: 'role', op: '=', value: 'admin' }, effect: 'require' }],
+        },
+        note: {
+          type: SchemaType.STRING,
+          title: 'Note',
+          ui: { placeholder: 'Ghi chú...', width: 12 },
+          maxLength: '300',
+          visibility: [{ when: { field: 'role', op: '=', value: 'admin' }, effect: 'show' }],
+        },
+        tags: {
+          type: SchemaType.ARRAY,
+          title: 'Tags (array of string)',
+          ui: { width: 12 },
+          minItems: '1',
+          maxItems: '6',
+          items: {
+            type: SchemaType.STRING,
+            title: 'Tag',
+            ui: { placeholder: 'Nhập tag...' },
+            validation: [{ type: 'required', message: 'Tag không được để trống' }],
+          },
+        },
+        contacts: {
+          type: SchemaType.ARRAY,
+          title: 'Contacts (array of object)',
+          ui: { width: 12 },
+          minItems: '1',
+          items: {
+            type: SchemaType.OBJECT,
+            title: 'Contact',
+            propertyOrdering: ['fullName', 'phone', 'contactType', 'remark'],
+            required: ['fullName'],
+            properties: {
+              fullName: {
+                type: SchemaType.STRING,
+                title: 'Full name',
+                ui: { placeholder: 'Nguyễn Văn A', width: { xs: 12, sm: 6 } },
+                validation: [{ type: 'required', message: 'Full name là bắt buộc' }],
+              },
+              phone: {
+                type: SchemaType.STRING,
+                title: 'Phone',
+                ui: { placeholder: '+84...', width: { xs: 12, sm: 6 } },
+                validation: [{ type: 'phone', message: 'Số điện thoại không hợp lệ' }],
+              },
+              contactType: {
+                type: SchemaType.STRING,
+                title: 'Type',
+                ui: { placeholder: 'Chọn loại', width: { xs: 12, sm: 6 } },
+                options: {
+                  type: OptionSourceType.STATIC,
+                  options: [
+                    { id: 'primary', label: 'Primary' },
+                    { id: 'secondary', label: 'Secondary' },
+                  ],
+                },
+              },
+              remark: {
+                type: SchemaType.STRING,
+                title: 'Remark',
+                ui: { widget: 'textarea', rows: 3, placeholder: 'Ghi chú...', width: { xs: 12, sm: 6 } },
+                maxLength: '200',
+              },
+            },
+          },
+        },
+      },
+      required: ['name', 'role'],
+      propertyOrdering: [
+        'name',
+        'email',
+        'role',
+        'department',
+        'startDate',
+        'meetingAt',
+        'description',
+        'attachments',
+        'accept',
+        'note',
+        'tags',
+        'contacts',
+      ],
+    }
+
+    return (
+      <SchemaForm
+        schema={schema}
+        className="space-y-4 rounded-2xl bg-surface p-6 shadow-sm"
+        optionsProvider={{
+          fetchTableOptions: async (params) => {
+            const { page, pageSize, search } = params
+            await new Promise((r) => setTimeout(r, 250))
+            const total = 80
+            const all = Array.from({ length: total }, (_, i) => ({
+              label: `Department ${i + 1}`,
+              value: String(i + 1),
+            }))
+            const filtered = search
+              ? all.filter((x) => x.label.toLowerCase().includes(search.toLowerCase()))
+              : all
+            const start = (page - 1) * pageSize
+            const end = Math.min(start + pageSize, filtered.length)
+            return {
+              data: filtered.slice(start, end),
+              hasMore: end < filtered.length,
+            }
+          },
+        }}
+        onSubmit={(values: any) => {
+          const normalizeFiles = (v: any) => {
+            if (typeof File !== 'undefined' && v instanceof File) return { name: v.name, size: v.size, type: v.type }
+            if (Array.isArray(v) && typeof File !== 'undefined' && v.every((x) => x instanceof File)) {
+              return v.map((x) => ({ name: x.name, size: x.size, type: x.type }))
+            }
+            return v
+          }
+          const safe = Object.fromEntries(Object.entries(values ?? {}).map(([k, v]) => [k, normalizeFiles(v)]))
+          alert(JSON.stringify(safe, null, 2))
+        }}
+        renderFooter={() => (
+          <Button type="submit" className="w-full">
+            Submit
+          </Button>
+        )}
+      />
     )
   },
 }
