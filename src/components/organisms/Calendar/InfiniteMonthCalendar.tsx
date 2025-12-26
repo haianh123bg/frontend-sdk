@@ -13,6 +13,7 @@ import {
 } from 'date-fns'
 import { Button } from '../../atoms/Button/Button'
 import { Scroll } from '../../atoms/Scroll/Scroll'
+import { Modal } from '../../molecules/Modal/Modal'
 import { generateId } from '../../../utils/id'
 import type { CalendarEvent } from './types'
 import { EventDialog, type EventDialogValue, eventToDialogValue } from './EventDialog'
@@ -27,6 +28,8 @@ export interface InfiniteMonthCalendarProps {
   events?: CalendarEvent[]
   defaultEvents?: CalendarEvent[]
   onEventsChange?: (events: CalendarEvent[]) => void
+
+  weekdayLabels?: string[]
 
   height?: number | string
   className?: string
@@ -64,9 +67,23 @@ const getWeekStartsOn = (locale?: import('date-fns').Locale): 0 | 1 | 2 | 3 | 4 
 
 const dayKey = (date: Date) => format(date, 'yyyy-MM-dd')
 
+const normalizeDay = (date: Date) => {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+const isDayInRange = (date: Date, start: Date, end: Date) => {
+  const t = normalizeDay(date).getTime()
+  const a = normalizeDay(start).getTime()
+  const b = normalizeDay(end).getTime()
+  const min = Math.min(a, b)
+  const max = Math.max(a, b)
+  return t >= min && t <= max
+}
+
 const buildEventMap = (events: CalendarEvent[]) => {
   const map = new Map<string, CalendarEvent[]>()
-
   for (const e of events) {
     const start = parseISO(e.start)
     const end = parseISO(e.end)
@@ -113,6 +130,7 @@ export const InfiniteMonthCalendar: React.FC<InfiniteMonthCalendarProps> = ({
   events,
   defaultEvents,
   onEventsChange,
+  weekdayLabels,
   height = 840,
   className,
   style,
@@ -145,6 +163,11 @@ export const InfiniteMonthCalendar: React.FC<InfiniteMonthCalendarProps> = ({
   const totalMonths = monthsBefore + monthsAfter + 1
   const centerIndex = monthsBefore
   const weekStartsOn = React.useMemo(() => getWeekStartsOn(dateFnsLocale), [dateFnsLocale])
+  const resolvedWeekdayLabels = React.useMemo(() => {
+    if (!weekdayLabels) return undefined
+    if (weekdayLabels.length !== 7) return undefined
+    return weekdayLabels
+  }, [weekdayLabels])
 
   const monthForIndex = React.useCallback(
     (index: number) => addMonths(baseMonth, index - centerIndex),
@@ -207,10 +230,9 @@ export const InfiniteMonthCalendar: React.FC<InfiniteMonthCalendarProps> = ({
     }
   })
 
-  const openCreateDialog = React.useCallback((date: Date) => {
-    const start = new Date(date)
-    start.setHours(0, 0, 0, 0)
-    const end = addDays(start, 1)
+  const openCreateDialog = React.useCallback((startDate: Date, endInclusive?: Date) => {
+    const start = normalizeDay(startDate)
+    const end = addDays(endInclusive ? normalizeDay(endInclusive) : start, 1)
 
     setDialogMode('create')
     setDialogValue({
@@ -277,6 +299,52 @@ export const InfiniteMonthCalendar: React.FC<InfiniteMonthCalendarProps> = ({
     },
     [upsertEvent]
   )
+
+  const [dayEventsOpen, setDayEventsOpen] = React.useState(false)
+  const [dayEventsDate, setDayEventsDate] = React.useState<Date | null>(null)
+  const dayEvents = React.useMemo(() => {
+    if (!dayEventsDate) return []
+    return eventsByDay.get(dayKey(dayEventsDate)) ?? []
+  }, [dayEventsDate, eventsByDay])
+
+  const openDayEvents = React.useCallback((date: Date) => {
+    setDayEventsDate(normalizeDay(date))
+    setDayEventsOpen(true)
+  }, [])
+
+  const dragStartRef = React.useRef<Date | null>(null)
+  const dragEndRef = React.useRef<Date | null>(null)
+  const isDraggingRef = React.useRef(false)
+  const suppressClickRef = React.useRef(false)
+  const [dragStart, setDragStart] = React.useState<Date | null>(null)
+  const [dragEnd, setDragEnd] = React.useState<Date | null>(null)
+
+  React.useEffect(() => {
+    const handleMouseUp = () => {
+      if (!isDraggingRef.current) return
+      isDraggingRef.current = false
+
+      const a = dragStartRef.current
+      const b = dragEndRef.current
+
+      dragStartRef.current = null
+      dragEndRef.current = null
+      setDragStart(null)
+      setDragEnd(null)
+
+      if (!a || !b) return
+      if (a.getTime() === b.getTime()) return
+
+      suppressClickRef.current = true
+
+      const start = a.getTime() <= b.getTime() ? a : b
+      const end = a.getTime() <= b.getTime() ? b : a
+      openCreateDialog(start, end)
+    }
+
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => window.removeEventListener('mouseup', handleMouseUp)
+  }, [openCreateDialog])
 
   const today = React.useMemo(() => {
     const t = new Date()
@@ -352,11 +420,15 @@ export const InfiniteMonthCalendar: React.FC<InfiniteMonthCalendarProps> = ({
                   <div className="grid grid-cols-7 gap-px overflow-hidden rounded-2xl border border-slate-200 bg-slate-200">
                     {Array.from({ length: 7 }).map((_, idx) => {
                       const date = addDays(startOfWeek(new Date(2024, 0, 1), { weekStartsOn }), idx)
-                      const label = format(date, 'EEE', dateFnsLocale ? { locale: dateFnsLocale } : undefined)
+                      const fallback = format(date, 'EEE', dateFnsLocale ? { locale: dateFnsLocale } : undefined)
+                      const label = resolvedWeekdayLabels ? resolvedWeekdayLabels[idx] : fallback
                       return (
                         <div
                           key={`dow-${idx}`}
-                          className="bg-surface px-2 py-2 text-xs font-semibold uppercase tracking-wide text-text-muted"
+                          className={
+                            'bg-surface px-2 py-2 text-center text-xs font-semibold tracking-wide text-text-muted whitespace-nowrap ' +
+                            (resolvedWeekdayLabels ? '' : 'uppercase')
+                          }
                         >
                           {label}
                         </div>
@@ -366,6 +438,7 @@ export const InfiniteMonthCalendar: React.FC<InfiniteMonthCalendarProps> = ({
                     {days.map((day) => {
                       const inMonth = isSameMonth(day, monthStart)
                       const isToday = isSameDay(day, today)
+                      const isInDragRange = dragStart && dragEnd ? isDayInRange(day, dragStart, dragEnd) : false
                       const k = dayKey(day)
                       const list = eventsByDay.get(k) ?? []
                       const visible = list.slice(0, 3)
@@ -376,11 +449,33 @@ export const InfiniteMonthCalendar: React.FC<InfiniteMonthCalendarProps> = ({
                           key={k}
                           type="button"
                           className={
-                            'min-h-[104px] bg-surface px-2 py-2 text-left transition-colors hover:bg-slate-50 focus:outline-none ' +
+                            'min-h-[104px] px-2 py-2 text-left transition-colors focus:outline-none ' +
+                            (isInDragRange ? 'bg-primary-50 hover:bg-primary-100 ' : 'bg-surface hover:bg-slate-50 ') +
                             (inMonth ? '' : 'opacity-55 ') +
                             (isToday ? 'ring-2 ring-primary-500 ring-inset ' : '')
                           }
-                          onClick={() => openCreateDialog(day)}
+                          onMouseDown={(e) => {
+                            if (e.button !== 0) return
+                            const d = normalizeDay(day)
+                            isDraggingRef.current = true
+                            dragStartRef.current = d
+                            dragEndRef.current = d
+                            setDragStart(d)
+                            setDragEnd(d)
+                          }}
+                          onMouseEnter={() => {
+                            if (!isDraggingRef.current) return
+                            const d = normalizeDay(day)
+                            dragEndRef.current = d
+                            setDragEnd(d)
+                          }}
+                          onClick={() => {
+                            if (suppressClickRef.current) {
+                              suppressClickRef.current = false
+                              return
+                            }
+                            openCreateDialog(day)
+                          }}
                         >
                           <div className="flex items-start justify-between">
                             <div className={"text-xs font-semibold " + (inMonth ? 'text-text-primary' : 'text-text-muted')}>
@@ -394,6 +489,9 @@ export const InfiniteMonthCalendar: React.FC<InfiniteMonthCalendarProps> = ({
                                 key={ev.id}
                                 className="w-full truncate rounded-md px-2 py-1 text-[11px] font-medium text-white"
                                 style={{ backgroundColor: ev.color ?? '#0ea5e9' }}
+                                onMouseDown={(e) => {
+                                  e.stopPropagation()
+                                }}
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   openEditDialog(ev)
@@ -413,7 +511,27 @@ export const InfiniteMonthCalendar: React.FC<InfiniteMonthCalendarProps> = ({
                             ))}
 
                             {hiddenCount > 0 && (
-                              <div className="text-[11px] font-medium text-text-muted">+{hiddenCount} nữa</div>
+                              <div
+                                className="cursor-pointer text-left text-[11px] font-medium text-text-muted hover:underline"
+                                role="button"
+                                tabIndex={0}
+                                onMouseDown={(e) => {
+                                  e.stopPropagation()
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  openDayEvents(day)
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    openDayEvents(day)
+                                  }
+                                }}
+                              >
+                                +{hiddenCount} nữa
+                              </div>
                             )}
                           </div>
                         </button>
@@ -426,6 +544,53 @@ export const InfiniteMonthCalendar: React.FC<InfiniteMonthCalendarProps> = ({
           </div>
         </Scroll>
       </div>
+
+      <Modal
+        open={dayEventsOpen}
+        onClose={() => setDayEventsOpen(false)}
+        title={dayEventsDate ? format(dayEventsDate, 'dd/MM/yyyy', dateFnsLocale ? { locale: dateFnsLocale } : undefined) : undefined}
+        size="md"
+      >
+        <div className="space-y-3">
+          <div className="flex justify-end">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                if (!dayEventsDate) return
+                setDayEventsOpen(false)
+                openCreateDialog(dayEventsDate)
+              }}
+            >
+              Tạo sự kiện
+            </Button>
+          </div>
+
+          {dayEvents.length === 0 ? (
+            <div className="text-sm text-text-muted">Không có sự kiện</div>
+          ) : (
+            <div className="space-y-2">
+              {dayEvents.map((ev) => (
+                <button
+                  key={ev.id}
+                  type="button"
+                  className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2 text-left hover:bg-slate-50"
+                  onClick={() => {
+                    setDayEventsOpen(false)
+                    openEditDialog(ev)
+                  }}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-semibold text-text-primary">{ev.title}</div>
+                    <div className="mt-0.5 text-xs text-text-muted">{ev.allDay ? 'Cả ngày' : 'Có giờ'}</div>
+                  </div>
+                  <div className="h-3 w-3 flex-none rounded-full" style={{ backgroundColor: ev.color ?? '#0ea5e9' }} />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </Modal>
 
       <EventDialog
         open={dialogOpen}
@@ -447,6 +612,6 @@ export const InfiniteMonthCalendar: React.FC<InfiniteMonthCalendarProps> = ({
       />
     </div>
   )
-}
+ }
 
 InfiniteMonthCalendar.displayName = 'InfiniteMonthCalendar'

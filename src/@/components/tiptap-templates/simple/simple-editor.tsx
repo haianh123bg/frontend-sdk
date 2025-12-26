@@ -64,6 +64,8 @@ import { useIsBreakpoint } from "@/hooks/use-is-breakpoint"
 import { useWindowSize } from "@/hooks/use-window-size"
 import { useCursorVisibility } from "@/hooks/use-cursor-visibility"
 
+import { NotionBlockToolbar } from "@/components/tiptap-templates/simple/notion-block-toolbar"
+
 // --- Components ---
 import { ThemeToggle } from "@/components/tiptap-templates/simple/theme-toggle"
 
@@ -193,6 +195,7 @@ export function SimpleEditor({ value = "", onValueChange }: SimpleEditorProps) {
     "main"
   )
   const toolbarRef = useRef<HTMLDivElement>(null)
+  const editorContainerRef = useRef<HTMLDivElement>(null)
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -285,11 +288,14 @@ export function SimpleEditor({ value = "", onValueChange }: SimpleEditorProps) {
           )}
         </Toolbar>
 
-        <EditorContent
-          editor={editor}
-          role="presentation"
-          className="simple-editor-content"
-        />
+        <div ref={editorContainerRef} className="relative">
+          <NotionBlockToolbar editor={editor} containerRef={editorContainerRef} />
+          <EditorContent
+            editor={editor}
+            role="presentation"
+            className="simple-editor-content"
+          />
+        </div>
       </EditorContext.Provider>
     </div>
   )

@@ -89,6 +89,7 @@ export * from './components/molecules/CornerPanel/CornerPanel'
 export * from './components/molecules/SpeedDial/SpeedDial'
 export * from './components/molecules/MenuDropdown/MenuDropdown'
 export * from './components/molecules/MenuDropdown/MenuDropdownPortal'
+export * from './components/molecules/MediaPreview/MediaPreview'
 
 // Navigation Components
 export * from './components/molecules/Tabs/Tabs'

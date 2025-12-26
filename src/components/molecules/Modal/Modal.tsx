@@ -36,15 +36,16 @@ export const Modal = React.forwardRef<HTMLDivElement, ModalProps>(
 
     return (
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-1"
         onClick={onClose}
       >
         <div
           ref={ref}
           className={twMerge(
             clsx(
-              'relative w-full rounded-2xl bg-surface p-6',
-              'max-h-[90vh] overflow-y-auto',
+              'relative w-full rounded-2xl bg-surface',
+              'max-h-[90vh] overflow-hidden',
+              'flex flex-col',
               sizeClasses[size],
               className
             )
@@ -52,7 +53,7 @@ export const Modal = React.forwardRef<HTMLDivElement, ModalProps>(
           onClick={(e) => e.stopPropagation()}
         >
           {title && (
-            <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center justify-between p-4 pb-4">
               <h3 className="text-xl font-bold text-text-primary">{title}</h3>
               <button
                 onClick={onClose}
@@ -65,7 +66,7 @@ export const Modal = React.forwardRef<HTMLDivElement, ModalProps>(
               </button>
             </div>
           )}
-          {children}
+          <div className={twMerge(clsx('min-h-0 flex-1 overflow-y-auto p-6', title && 'pt-0'))}>{children}</div>
         </div>
       </div>
     )
