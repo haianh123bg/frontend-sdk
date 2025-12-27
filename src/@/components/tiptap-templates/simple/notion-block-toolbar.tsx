@@ -1,6 +1,14 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState, type RefObject, type MouseEvent as ReactMouseEvent } from "react"
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react"
 import type { Editor } from "@tiptap/react"
 import { TextSelection } from "@tiptap/pm/state"
 
@@ -53,6 +61,7 @@ export function NotionBlockToolbar({ editor, containerRef }: NotionBlockToolbarP
   const [menuPinnedOpen, setMenuPinnedOpen] = useState(false)
   const [hovering, setHovering] = useState(false)
   const [focused, setFocused] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
 
   const selectionActiveRef = useRef(false)
   const menuPinnedOpenRef = useRef(false)
@@ -268,25 +277,38 @@ export function NotionBlockToolbar({ editor, containerRef }: NotionBlockToolbarP
     editor.view.focus()
   }
 
-  const handleDragMouseDown = (e: ReactMouseEvent<HTMLButtonElement>) => {
+  const startGripSession = (clientX: number, clientY: number) => {
     if (!editor) return
-    e.preventDefault()
-    e.stopPropagation()
 
-    // Grip button: click => mở menu. Drag => reorder.
+    // Đóng menu nếu đang mở
     setMenuPinnedOpenSafe(false)
 
     // Xác định block bắt đầu drag theo đúng vị trí con trỏ
     const fromPos =
-      getTopLevelPosFromPoint(e.clientX, e.clientY) ??
       getTopLevelPosFromBlockEl(activeBlockElRef.current) ??
+      getTopLevelPosFromPoint(clientX, clientY) ??
       (editor.state.selection.$from.depth >= 1 ? editor.state.selection.$from.before(1) : null)
     if (fromPos == null) return
 
-    dragSessionRef.current = { startX: e.clientX, startY: e.clientY, fromPos }
+    dragSessionRef.current = { startX: clientX, startY: clientY, fromPos }
     draggingRef.current = false
+    setIsDragging(false)
+  }
 
-    const onMove = (ev: MouseEvent) => {
+  const handleGripPointerDown = (e: ReactPointerEvent<HTMLButtonElement>) => {
+    if (!editor) return
+    e.preventDefault()
+    e.stopPropagation()
+
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId)
+    } catch {
+      // ignore
+    }
+
+    startGripSession(e.clientX, e.clientY)
+
+    const onMove = (ev: PointerEvent) => {
       const s = dragSessionRef.current
       if (!s) return
       if (draggingRef.current) return
@@ -295,32 +317,47 @@ export function NotionBlockToolbar({ editor, containerRef }: NotionBlockToolbarP
       const dy = ev.clientY - s.startY
       if (Math.abs(dx) < DRAG_THRESHOLD_PX && Math.abs(dy) < DRAG_THRESHOLD_PX) return
 
-      // Bắt đầu drag thực sự
       draggingRef.current = true
+      setIsDragging(true)
       setMenuPinnedOpenSafe(false)
     }
 
-    const onUp = (ev: MouseEvent) => {
+    const cleanup = () => {
+      document.removeEventListener("pointermove", onMove)
+      document.removeEventListener("pointerup", onUp)
+      document.removeEventListener("pointercancel", onCancel)
+    }
+
+    const onCancel = () => {
+      cleanup()
+      dragSessionRef.current = null
+      draggingRef.current = false
+      setIsDragging(false)
+      setMenuPinnedOpenSafe(false)
+    }
+
+    const onUp = (ev: PointerEvent) => {
       const s = dragSessionRef.current
       dragSessionRef.current = null
 
-      document.removeEventListener("mousemove", onMove)
-      document.removeEventListener("mouseup", onUp)
+      cleanup()
 
       if (!s) return
 
       // Không vượt ngưỡng => coi là click: mở menu
       if (!draggingRef.current) {
+        draggingRef.current = false
+        setIsDragging(false)
         setMenuPinnedOpenSafe(true)
         return
       }
 
       draggingRef.current = false
+      setIsDragging(false)
 
       const to = getTopLevelPosFromPoint(ev.clientX, ev.clientY)
       if (to == null) return
 
-      // Quyết định thả trước/sau dựa vào Y so với giữa block
       let placeAfter = false
       try {
         const found = editor.view.posAtCoords({ left: ev.clientX, top: ev.clientY })
@@ -338,8 +375,19 @@ export function NotionBlockToolbar({ editor, containerRef }: NotionBlockToolbarP
       moveTopLevelNode(s.fromPos, to, placeAfter)
     }
 
-    document.addEventListener("mousemove", onMove)
-    document.addEventListener("mouseup", onUp)
+    document.addEventListener("pointermove", onMove)
+    document.addEventListener("pointerup", onUp)
+    document.addEventListener("pointercancel", onCancel)
+  }
+
+  const handleGripMouseDown = (e: ReactMouseEvent<HTMLButtonElement>) => {
+    // Fallback nếu môi trường không phát pointer events
+    if (!editor) return
+    e.preventDefault()
+    e.stopPropagation()
+    startGripSession(e.clientX, e.clientY)
+
+    // Mousedown fallback chỉ chuẩn bị session, còn hành vi click/drag nên dùng pointer.
   }
 
   useEffect(() => {
@@ -530,8 +578,12 @@ export function NotionBlockToolbar({ editor, containerRef }: NotionBlockToolbarP
 
         <button
           type="button"
-          className="h-7 w-7 cursor-grab rounded-md bg-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-          onMouseDown={handleDragMouseDown}
+          className={
+            "h-7 w-7 cursor-grab rounded-md bg-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-700 " +
+            (isDragging ? "cursor-grabbing bg-slate-200 text-slate-700" : "")
+          }
+          onPointerDown={handleGripPointerDown}
+          onMouseDown={handleGripMouseDown}
           aria-label="Drag"
         >
           <GripIcon className="h-4 w-4 mx-auto" />
