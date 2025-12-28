@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react'
 import * as React from 'react'
 import { ChatPanel, type ChatPanelProps } from './ChatPanel'
 import type { ChatAgentInfo, ChatMessage, SendMessageInput } from './types'
+import type { ChatKitActionEvent, UIComponent } from '../ChatKit'
 
 const meta: Meta<typeof ChatPanel> = {
   title: 'Organisms/Chat/ChatPanel',
@@ -670,5 +671,95 @@ export const FileMessages: Story = {
     allowAttachments: false,
     enableOptimistic: true,
     incomingMessageStyle: 'default',
+  },
+}
+
+export const WithWidgets: Story = {
+  render: (args: ChatPanelProps) => {
+    const [messages, setMessages] = React.useState<ChatMessage[]>(args.messages)
+    const [lastAction, setLastAction] = React.useState<ChatKitActionEvent | null>(null)
+
+    const onSend = async (input: SendMessageInput) => {
+      await new Promise((r) => setTimeout(r, 250))
+
+      const m: ChatMessage = {
+        id: `srv_${input.clientId}`,
+        clientId: input.clientId,
+        conversationId: input.conversationId,
+        senderId: args.currentUserId,
+        senderName: args.currentUserName,
+        senderAvatarUrl: args.currentUserAvatarUrl,
+        direction: 'outgoing',
+        createdAt: Date.now(),
+        status: 'sent',
+        content: { type: 'text', text: input.text || '' },
+        canDelete: true,
+      }
+
+      setMessages((prev) => [...prev, m])
+    }
+
+    return (
+      <div className="h-[720px] w-full">
+        <ChatPanel
+          {...args}
+          messages={messages}
+          onSend={onSend}
+          onWidgetAction={(e) => {
+            setLastAction(e)
+          }}
+        />
+
+        {lastAction && (
+          <div className="px-4 pt-3">
+            <pre className="max-w-full overflow-auto rounded-xl bg-slate-950 p-3 text-xs text-slate-100">
+              {JSON.stringify(lastAction, null, 2)}
+            </pre>
+          </div>
+        )}
+      </div>
+    )
+  },
+  args: {
+    agent,
+    conversationId,
+    currentUserId,
+    currentUserName: 'Bạn',
+    messages: baseMessages,
+    virtualized: true,
+    allowAttachments: false,
+    enableOptimistic: true,
+    incomingMessageStyle: 'default',
+    widgets: [
+      {
+        type: 'card',
+        props: { title: 'Widget demo', subtitle: 'Nhấn nút để emit action', padding: 'md' },
+        children: [
+          { type: 'text', props: { value: 'Ví dụ widget render từ schema JSON.' } },
+          {
+            type: 'row',
+            props: { gap: 'sm', className: 'justify-end' },
+            children: [
+              {
+                type: 'button',
+                props: {
+                  variant: 'secondary',
+                  label: 'Cancel',
+                  action: { type: 'widget.cancel' },
+                },
+              },
+              {
+                type: 'button',
+                props: {
+                  variant: 'primary',
+                  label: 'Confirm',
+                  action: { type: 'widget.confirm', payload: { ok: true } },
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ] as UIComponent[],
   },
 }

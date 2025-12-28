@@ -3,6 +3,7 @@ import {
   useForm,
   useFieldArray,
   useFormContext,
+  useWatch,
   type FieldValues,
   type UseFormProps,
   type UseFormReturn,
@@ -316,7 +317,36 @@ function toGridSizeConfig(width?: number | { xs?: number; sm?: number; md?: numb
   if (width.md) out.md = width.md
   if (width.lg) out.lg = width.lg
   if (width.xl) out.xl = width.xl
+  if ((width as any)['2xl']) out['2xl'] = (width as any)['2xl']
   return out
+}
+
+function collectVisibilityDeps(schema: FormSchema): string[] {
+  const out = new Set<string>()
+  const walk = (s: FormSchema | undefined) => {
+    if (!s) return
+    for (const r of s.visibility ?? []) {
+      if (r?.when?.field) out.add(r.when.field)
+    }
+
+    if (s.type === SchemaType.OBJECT) {
+      const props = s.properties ?? {}
+      for (const key of Object.keys(props)) {
+        walk(props[key] as FormSchema)
+      }
+    }
+
+    if (s.type === SchemaType.ARRAY) {
+      walk(s.items as any)
+    }
+
+    for (const alt of s.anyOf ?? []) {
+      walk(alt as any)
+    }
+  }
+
+  walk(schema)
+  return Array.from(out)
 }
 
 function buildStaticSelectOptions(source: StaticOptionsSource): SelectOption[] {
@@ -735,9 +765,9 @@ function SchemaArrayField(params: {
   disabled: boolean
   placeholder?: string
   optionsProvider?: SchemaFormOptionsProvider
-  values: Record<string, any>
+  getValues: () => Record<string, any>
 }) {
-  const { name, fieldSchema, disabled, placeholder, optionsProvider, values } = params
+  const { name, fieldSchema, disabled, placeholder, optionsProvider, getValues } = params
   const { control } = useFormContext<any>()
   const helpers = useFieldArray({ control, name: name as any })
 
@@ -751,7 +781,8 @@ function SchemaArrayField(params: {
   const removeDisabledReason = !disabled && minItems > 0 ? `Không thể xoá vì minItems=${minItems}` : undefined
   const addDisabledReason = !disabled && maxItems !== undefined ? `Không thể thêm vì maxItems=${maxItems}` : undefined
 
-  const itemsValue = (getValueAtPath(values, name) ?? []) as any[]
+  const watchedItemsValue = useWatch({ control, name: name as any })
+  const itemsValue = (watchedItemsValue ?? []) as any[]
   const resolveItemTitle = (index: number) => {
     if (itemSchema.type !== SchemaType.OBJECT) return undefined
     const v = itemsValue?.[index]
@@ -801,6 +832,7 @@ function SchemaArrayField(params: {
         {helpers.fields.map((f, index) => {
           const basePath = `${name}.${index}`
           const title = resolveItemTitle(index)
+          const values = getValues()
           return (
             <div key={f.id} className="rounded-2xl border border-slate-200 bg-surface p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
@@ -843,7 +875,7 @@ function SchemaArrayField(params: {
                               disabled: !state.enabled,
                               placeholder: childPlaceholder,
                               optionsProvider,
-                              values,
+                              getValues,
                             })
                           }
                         </FormFieldController>
@@ -860,7 +892,7 @@ function SchemaArrayField(params: {
                       disabled,
                       placeholder,
                       optionsProvider,
-                      values,
+                      getValues,
                     })
                   }
                 </FormFieldController>
@@ -879,9 +911,9 @@ function renderFieldControl(params: {
   disabled: boolean
   placeholder?: string
   optionsProvider?: SchemaFormOptionsProvider
-  values: Record<string, any>
+  getValues: () => Record<string, any>
 }) {
-  const { field, fieldSchema, disabled, placeholder, optionsProvider, values } = params
+  const { field, fieldSchema, disabled, placeholder, optionsProvider, getValues } = params
 
   const widget = pickFieldWidget(fieldSchema)
 
@@ -960,15 +992,15 @@ function renderFieldControl(params: {
       }
       if (source.type === OptionSourceType.TABLE) {
         if (!optionsProvider?.fetchTableOptions) throw new Error('Missing optionsProvider.fetchTableOptions')
-        return optionsProvider.fetchTableOptions({ source, page, pageSize, search, values })
+        return optionsProvider.fetchTableOptions({ source, page, pageSize, search, values: getValues() })
       }
       if (source.type === OptionSourceType.VIEW_QUERY) {
         if (!optionsProvider?.fetchViewQueryOptions) throw new Error('Missing optionsProvider.fetchViewQueryOptions')
-        return optionsProvider.fetchViewQueryOptions({ source, page, pageSize, search, values })
+        return optionsProvider.fetchViewQueryOptions({ source, page, pageSize, search, values: getValues() })
       }
       if (source.type === OptionSourceType.LOOKUP) {
         if (!optionsProvider?.fetchLookupOptions) throw new Error('Missing optionsProvider.fetchLookupOptions')
-        return optionsProvider.fetchLookupOptions({ source, page, pageSize, search, values })
+        return optionsProvider.fetchLookupOptions({ source, page, pageSize, search, values: getValues() })
       }
       throw new Error('Unsupported options source')
     }
@@ -1085,7 +1117,10 @@ export function SchemaForm<TFieldValues extends FieldValues = FieldValues>({
 
   const methods = methodsProp ?? internalMethods
 
-  const values = (methods.watch() ?? {}) as Record<string, any>
+  const visibilityDeps = React.useMemo(() => collectVisibilityDeps(schema as any), [schema])
+  useWatch({ control: methods.control as any, name: visibilityDeps as any })
+  const getValues = React.useCallback(() => (methods.getValues() ?? {}) as Record<string, any>, [methods])
+  const values = getValues()
 
   const fields = React.useMemo(() => computeEffectiveFields(schema), [schema])
 
@@ -1117,11 +1152,11 @@ export function SchemaForm<TFieldValues extends FieldValues = FieldValues>({
                     disabled={!state.enabled}
                     placeholder={placeholder}
                     optionsProvider={optionsProvider}
-                    values={values}
+                    getValues={getValues}
                   />
                 </FormField>
               ) : (
-                <FormFieldController<any> name={f.path as any} label={label} required={state.required} helperText={helperText}>
+                <FormFieldController<TFieldValues> name={f.path as any} label={label} required={state.required} helperText={helperText}>
                   {({ field }) =>
                     renderFieldControl({
                       field,
@@ -1129,7 +1164,7 @@ export function SchemaForm<TFieldValues extends FieldValues = FieldValues>({
                       disabled: !state.enabled,
                       placeholder,
                       optionsProvider,
-                      values,
+                      getValues,
                     })
                   }
                 </FormFieldController>

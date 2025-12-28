@@ -476,7 +476,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                   href={url}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-text-secondary hover:bg-slate-50"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary hover:bg-slate-50"
                   aria-label="Mở file"
                 >
                   <ExternalLink size={16} />
@@ -486,7 +486,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                 <a
                   href={url}
                   download
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-text-secondary hover:bg-slate-50"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary hover:bg-slate-50"
                   aria-label="Tải xuống"
                 >
                   <Download size={16} />
@@ -711,7 +711,7 @@ export const AgentThinkingMessage: React.FC<AgentThinkingMessageProps> = ({ stat
   return (
     <div className="flex w-full justify-start gap-2">
       <div className="min-w-0">
-        <div className="max-w-[80%] rounded-2xl border border-slate-200 bg-surface px-3 py-2 text-sm text-text-muted opacity-80">
+        <div className="max-w-[80%] rounded-2xl bg-surface px-3 py-2 text-sm text-text-muted opacity-80">
           <div className="flex items-center gap-2">
             <span className="truncate">{agentName ? `${agentName}: ` : ''}{text}</span>
             <span className="inline-flex items-center gap-1">

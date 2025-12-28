@@ -130,3 +130,5 @@ export * from './components/organisms/Chat/MessageList'
 export * from './components/organisms/Chat/ChatInput'
 export * from './components/organisms/Chat/ChatPanel'
 export * from './components/organisms/Chat/BoxChat'
+
+export * from './components/organisms/ChatKit'

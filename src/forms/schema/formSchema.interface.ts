@@ -1,4 +1,4 @@
-import type { ResponsiveWidth, Schema } from './schema.interface'
+import type { ColumnSpan, ResponsiveWidth, Schema } from './schema.interface'
 import { SchemaType } from './schema.interface'
 
 export enum OptionSourceType {
@@ -22,7 +22,7 @@ export interface UiConfig {
     accept?: string
     maxSizeMb?: number
   }
-  width?: number | ResponsiveWidth
+  width?: ColumnSpan | ResponsiveWidth
   section?: string
   order?: number
   readOnly?: boolean

@@ -10,6 +10,7 @@ import { IconButton } from '../../atoms/IconButton/IconButton'
 import { Caption, Text } from '../../atoms/TypographyPrimitives'
 import { Modal } from '../../molecules/Modal/Modal'
 import { createOptimisticOutgoingMessage, type AgentThinkingState, type ChatAgentInfo, type ChatMessage, type SendMessageInput } from './types'
+import { SchemaRenderer, type ComponentRegistry, type ChatKitActionEvent, type UIComponent } from '../ChatKit'
 
 export interface ChatPanelProps
   extends Pick<
@@ -33,6 +34,9 @@ export interface ChatPanelProps
   currentUserId: string
   currentUserName?: string
   currentUserAvatarUrl?: string
+  widgets?: UIComponent[]
+  widgetRegistry?: ComponentRegistry
+  onWidgetAction?: (event: ChatKitActionEvent) => void
   virtualized?: boolean
   estimateRowHeight?: number
   overscan?: number
@@ -58,6 +62,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   currentUserId,
   currentUserName,
   currentUserAvatarUrl,
+  widgets,
+  widgetRegistry,
+  onWidgetAction,
   showSenderName,
   showOutgoingAvatar,
   incomingMessageStyle,
@@ -368,6 +375,18 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         onRetrySend={handleRetrySend}
       />
 
+      {!!widgets?.length && (
+        <div className="border-t border-slate-200 bg-surface px-3 py-3">
+          <SchemaRenderer
+            nodes={widgets}
+            registry={widgetRegistry}
+            conversationId={conversationId}
+            onAction={onWidgetAction}
+            className="gap-2"
+          />
+        </div>
+      )}
+
       <ChatInput
         conversationId={conversationId}
         onSend={handleSend}
@@ -378,6 +397,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         mentionContexts={mentionContexts}
         onOpenSettings={onOpenSettings}
         onVoiceToText={onVoiceToText}
+        className={widgets?.length ? 'border-t-0 pt-0' : undefined}
         replyTo={
           replyTo
             ? {

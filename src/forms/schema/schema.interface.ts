@@ -10,12 +10,15 @@ export enum SchemaType {
 
 export type SchemaValue = unknown
 
+export type ColumnSpan = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12
+
 export interface ResponsiveWidth {
-  xs?: number
-  sm?: number
-  md?: number
-  lg?: number
-  xl?: number
+  xs?: ColumnSpan
+  sm?: ColumnSpan
+  md?: ColumnSpan
+  lg?: ColumnSpan
+  xl?: ColumnSpan
+  '2xl'?: ColumnSpan
 }
 
 export interface Schema {
@@ -29,18 +32,18 @@ export interface Schema {
 
   enum?: string[]
 
-  maxItems?: string
-  minItems?: string
+  maxItems?: string | number
+  minItems?: string | number
   items?: Schema
 
   properties?: { [key: string]: Schema }
   required?: string[]
-  minProperties?: string
-  maxProperties?: string
+  minProperties?: string | number
+  maxProperties?: string | number
   propertyOrdering?: string[]
 
-  minLength?: string
-  maxLength?: string
+  minLength?: string | number
+  maxLength?: string | number
   pattern?: string
 
   minimum?: number

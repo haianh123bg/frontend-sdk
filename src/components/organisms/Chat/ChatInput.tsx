@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { Paperclip, Send, Mic, Settings, X } from 'lucide-react'
+import { twMerge } from 'tailwind-merge'
 import { IconButton } from '../../atoms/IconButton/IconButton'
 import { Button } from '../../atoms/Button/Button'
 import { Chip } from '../../atoms/Chip/Chip'
@@ -20,6 +21,7 @@ export interface ChatInputProps {
   onSend?: (input: SendMessageInput) => void | Promise<void>
   onOpenSettings?: () => void
   onVoiceToText?: () => void
+  className?: string
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({
@@ -34,6 +36,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   onSend,
   onOpenSettings,
   onVoiceToText,
+  className,
 }) => {
   const [text, setText] = React.useState('')
   const [attachments, setAttachments] = React.useState<File[]>([])
@@ -318,7 +321,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   }
 
   return (
-    <div ref={containerRef} className="border-t border-slate-200 bg-surface px-3 py-3">
+    <div ref={containerRef} className={twMerge('border-t border-slate-200 bg-surface px-3 py-3', className)}>
       <input
         ref={fileInputRef}
         type="file"
