@@ -13,12 +13,16 @@ export interface BreadcrumbProps {
   items: BreadcrumbItem[]
   separator?: React.ReactNode
   className?: string
+  hoverEffect?: 'underline' | 'none'
+  emphasizeLast?: boolean
 }
 
 export const Breadcrumb: React.FC<BreadcrumbProps> = ({
   items,
   separator = '/',
   className,
+  hoverEffect = 'underline',
+  emphasizeLast = false,
 }) => {
   return (
     <nav aria-label="Breadcrumb" className={twMerge(clsx('flex items-center gap-2', className))}>
@@ -33,19 +37,23 @@ export const Breadcrumb: React.FC<BreadcrumbProps> = ({
                 onClick={item.onClick}
                 className={twMerge(
                   clsx(
-                    'text-sm transition-colors',
+                    'relative text-sm text-text-primary font-normal transition-colors',
                     isLast
-                      ? 'font-medium text-text-primary cursor-default'
-                      : 'text-text-secondary hover:text-text-primary cursor-pointer'
+                      ? emphasizeLast
+                        ? 'font-medium cursor-default'
+                        : 'cursor-default'
+                      : 'cursor-pointer',
+                    hoverEffect === 'underline' && !isLast &&
+                      "pb-0.5 after:content-[''] after:absolute after:left-0 after:bottom-0 after:h-[2px] after:w-full after:bg-current after:origin-left after:scale-x-0 after:transition-transform after:duration-200 hover:after:scale-x-100 focus-visible:after:scale-x-100"
                   )
                 )}
               >
                 {item.label}
               </a>
             ) : (
-              <span className="text-sm font-medium text-text-primary">{item.label}</span>
+              <span className="text-sm text-text-primary font-normal">{item.label}</span>
             )}
-            {!isLast && <span className="text-text-muted">{separator}</span>}
+            {!isLast && <span className="text-sm text-text-primary">{separator}</span>}
           </React.Fragment>
         )
       })}

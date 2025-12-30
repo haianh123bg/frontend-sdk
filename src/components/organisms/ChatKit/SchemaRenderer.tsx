@@ -22,6 +22,12 @@ class SchemaRendererErrorBoundary extends React.Component<
   }
 }
 
+function isValidUIComponent(value: unknown): value is UIComponent {
+  if (!value || typeof value !== 'object') return false
+  const v = value as any
+  return typeof v.type === 'string'
+}
+
 export interface SchemaRendererProps {
   node?: UIComponent | null
   nodes?: UIComponent[] | null
@@ -31,6 +37,8 @@ export interface SchemaRendererProps {
   className?: string
   fallback?: React.ReactNode
   unknownFallback?: (node: UIComponent, path: string[]) => React.ReactNode
+  invalidFallback?: (value: unknown, path: string[]) => React.ReactNode
+  maxDepth?: number
 }
 
 export const SchemaRenderer: React.FC<SchemaRendererProps> = ({
@@ -42,23 +50,56 @@ export const SchemaRenderer: React.FC<SchemaRendererProps> = ({
   className,
   fallback,
   unknownFallback,
+  invalidFallback,
+  maxDepth = 50,
 }) => {
   const resolvedRegistry = React.useMemo(() => {
     return { ...defaultComponentRegistry, ...(registry ?? {}) }
   }, [registry])
 
   const renderNode = React.useCallback(
-    (n: UIComponent, path: string[]): React.ReactNode => {
+    (value: unknown, path: string[]): React.ReactNode => {
+      if (!isValidUIComponent(value)) {
+        return invalidFallback ? (
+          <React.Fragment key={path.join('/')}>{invalidFallback(value, path)}</React.Fragment>
+        ) : (
+          <div
+            key={path.join('/')}
+            className="rounded-xl border border-dashed border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-700"
+          >
+            Invalid node at <span className="font-mono">{path.join('/')}</span>
+          </div>
+        )
+      }
+
+      const n = value
+      if (path.length > maxDepth) {
+        return (
+          <div
+            key={n.key ?? n.id ?? path.join('/')}
+            className="rounded-xl border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+          >
+            Max depth exceeded at <span className="font-mono">{path.join('/')}</span>
+          </div>
+        )
+      }
+
       const comp = resolvedRegistry[n.type]
 
       const children = Array.isArray(n.children) ? n.children : []
-      const renderChildren = () => children.map((c, idx) => renderNode(c, [...path, `${c.type}:${idx}`]))
+      const renderChildren = () =>
+        children.map((c, idx) =>
+          renderNode(c, [...path, `${isValidUIComponent(c) ? c.type : 'invalid'}:${idx}`])
+        )
 
       if (!comp) {
         return unknownFallback ? (
-          unknownFallback(n, path)
+          <React.Fragment key={n.key ?? n.id ?? path.join('/')}>{unknownFallback(n, path)}</React.Fragment>
         ) : (
-          <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-xs text-text-muted">
+          <div
+            key={n.key ?? n.id ?? path.join('/')}
+            className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-xs text-text-muted"
+          >
             Unsupported component: <span className="font-mono">{n.type}</span>
           </div>
         )
@@ -72,17 +113,24 @@ export const SchemaRenderer: React.FC<SchemaRendererProps> = ({
         path,
       }
 
-      return <React.Fragment key={n.key ?? n.id ?? path.join('/')}>{comp(props)}</React.Fragment>
+      const Comp = comp
+      return (
+        <React.Fragment key={n.key ?? n.id ?? path.join('/')}> 
+          <Comp {...props} />
+        </React.Fragment>
+      )
     },
-    [conversationId, onAction, resolvedRegistry, unknownFallback]
+    [conversationId, invalidFallback, maxDepth, onAction, resolvedRegistry, unknownFallback]
   )
 
-  const list = nodes ?? (node ? [node] : [])
+  const list: Array<unknown> = nodes ?? (node ? [node] : [])
 
   return (
     <SchemaRendererErrorBoundary fallback={fallback}>
       <div className={twMerge('flex flex-col gap-3', className)}>
-        {list.filter(Boolean).map((n, idx) => renderNode(n as UIComponent, [`${(n as UIComponent).type}:${idx}`]))}
+        {list.filter(Boolean).map((n, idx) =>
+          renderNode(n, [`${isValidUIComponent(n) ? n.type : 'invalid'}:${idx}`])
+        )}
       </div>
     </SchemaRendererErrorBoundary>
   )

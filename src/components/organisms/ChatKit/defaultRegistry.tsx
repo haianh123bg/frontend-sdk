@@ -1,5 +1,5 @@
 import { Card } from '../../atoms/Card/Card'
-import { Row, Col, Box, Divider } from '../../atoms/LayoutPrimitives'
+import { Row, Col, Box, Divider, Spacer } from '../../atoms/LayoutPrimitives'
 import { Text } from '../../atoms/TypographyPrimitives'
 import { Image } from '../../atoms/Image/Image'
 import { Button } from '../../atoms/Button/Button'
@@ -101,11 +101,17 @@ const ButtonNode = ({ node, renderChildren, onAction, conversationId }: SchemaCo
   )
 }
 
+const SpacerNode = ({ node }: SchemaComponentProps) => {
+  const { size, ...rest } = (node.props ?? {}) as Record<string, any>
+  return <Spacer size={size} {...rest} />
+}
+
 export const defaultComponentRegistry: ComponentRegistry = {
   card: CardNode,
   row: RowNode,
   col: ColNode,
   box: BoxNode,
+  spacer: SpacerNode,
   divider: DividerNode,
   text: TextNode,
   image: ImageNode,

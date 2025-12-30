@@ -302,7 +302,7 @@ export const DatetimePicker = React.forwardRef<HTMLInputElement, DatetimePickerP
         className={twMerge(
           clsx(
             'relative text-sm',
-            fullWidth ? 'w-full' : 'w-auto',
+            fullWidth ? 'w-full' : 'inline-block w-auto',
             disabled && 'opacity-60 cursor-not-allowed',
             className
           )
@@ -348,7 +348,7 @@ export const DatetimePicker = React.forwardRef<HTMLInputElement, DatetimePickerP
                 inline
                   ? 'relative w-full rounded-xl bg-transparent shadow-none outline-none'
                   : 'absolute left-0 z-50 mt-1 w-full rounded-xl bg-surface shadow-lg outline-none',
-                'max-h-[80vh] overflow-hidden sm:min-w-[280px] sm:max-w-md'
+                'max-h-[80vh] overflow-hidden sm:min-w-[260px] sm:max-w-sm'
               )
             )}
           >

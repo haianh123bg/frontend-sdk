@@ -51,11 +51,21 @@ const formatDateLabel = (value?: string) => {
   return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`
 }
 
+const isValidDateParts = (year: number, month: number, day: number) => {
+  if (!year || !month || !day) return false
+  if (month < 1 || month > 12) return false
+  const daysInMonth = new Date(year, month, 0).getDate()
+  if (day < 1 || day > daysInMonth) return false
+  return true
+}
+
 const parseDate = (value?: string) => {
   if (!value) return undefined
   const [year, month, day] = value.split('-').map(Number)
-  if (!year || !month || !day) return undefined
-  return new Date(year, month - 1, day)
+  if (!isValidDateParts(year, month, day)) return undefined
+  const date = new Date(year, month - 1, day)
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return undefined
+  return date
 }
 
 const parseInputToDate = (text: string): Date | undefined => {
@@ -70,10 +80,10 @@ const parseInputToDate = (text: string): Date | undefined => {
   // dd/mm/yyyy
   if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(value)) {
     const [day, month, year] = value.split('/').map(Number)
-    if (!year || !month || !day) return undefined
-    if (month < 1 || month > 12) return undefined
-    if (day < 1 || day > 31) return undefined
-    return new Date(year, month - 1, day)
+    if (!isValidDateParts(year, month, day)) return undefined
+    const date = new Date(year, month - 1, day)
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return undefined
+    return date
   }
 
   return undefined
@@ -137,10 +147,26 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
     )
 
     const containerRef = React.useRef<HTMLDivElement | null>(null)
+    const panelRef = React.useRef<HTMLDivElement | null>(null)
 
     React.useEffect(() => {
       setInputText(selectedValue ? formatDateLabel(selectedValue) : '')
     }, [selectedValue])
+
+    React.useEffect(() => {
+      const dt = parseDate(selectedValue)
+      if (!dt) return
+      setViewYear(dt.getFullYear())
+      setViewMonth(dt.getMonth())
+    }, [selectedValue])
+
+    React.useEffect(() => {
+      if (!open) return
+      const dt = parseInputToDate(inputText) ?? parseDate(selectedValue)
+      if (!dt) return
+      setViewYear(dt.getFullYear())
+      setViewMonth(dt.getMonth())
+    }, [open, inputText, selectedValue])
 
     React.useEffect(() => {
       if (!open) return
@@ -227,7 +253,11 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
       }
     }
 
-    const handleInputBlur = () => {
+    const handleInputBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+      const nextFocused = e.relatedTarget as Node | null
+      if (nextFocused && panelRef.current?.contains(nextFocused)) {
+        return
+      }
       commitInputValue()
     }
 
@@ -273,7 +303,7 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
 
     const daysInMonth = getDaysInMonth(viewYear, viewMonth)
     const firstDay = getFirstDayOfMonth(viewYear, viewMonth)
-    const selectedDate = parseDate(selectedValue)
+    const selectedDate = parseInputToDate(inputText) ?? parseDate(selectedValue)
 
     const weeks: (number | null)[][] = []
     let currentDay = 1 - firstDay
@@ -322,7 +352,7 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
         className={twMerge(
           clsx(
             'relative text-sm',
-            fullWidth ? 'w-full' : 'w-auto',
+            fullWidth ? 'w-full' : 'inline-block w-auto',
             disabled && 'opacity-60 cursor-not-allowed',
             className
           )
@@ -342,7 +372,8 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
           <div
             className={twMerge(
               clsx(
-                'flex h-10 w-full items-center justify-between rounded-xl bg-surface-alt px-3 py-2',
+                'flex h-10 items-center justify-between rounded-xl bg-surface-alt px-3 py-2',
+                fullWidth ? 'w-full' : 'w-auto',
                 'text-left',
                 'focus-within:outline-none focus-within:ring-2 focus-within:ring-primary-100',
                 'transition-all duration-200',
@@ -383,13 +414,19 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
 
         {(open || inline) && !disabled && (
           <div
+            ref={panelRef}
+            onMouseDown={(e) => {
+              if ((e.target as HTMLElement | null)?.closest('button')) {
+                e.preventDefault()
+              }
+            }}
             className={twMerge(
               clsx(
                 // Dropdown bám theo input
                 inline
                   ? 'relative w-full rounded-xl bg-transparent shadow-none outline-none'
                   : 'absolute left-0 z-50 mt-1 w-full rounded-xl bg-surface shadow-lg outline-none',
-                'max-h-[80vh] overflow-hidden sm:min-w-[260px] sm:max-w-sm'
+                'max-h-[80vh] overflow-hidden sm:min-w-[240px] sm:max-w-xs'
               )
             )}
           >

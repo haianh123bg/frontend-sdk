@@ -23,6 +23,6 @@ export type SchemaComponentProps = {
   path: string[]
 }
 
-export type SchemaComponent = (props: SchemaComponentProps) => React.ReactNode
+export type SchemaComponent = React.ComponentType<SchemaComponentProps>
 
 export type ComponentRegistry = Record<string, SchemaComponent>

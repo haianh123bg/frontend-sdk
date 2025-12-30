@@ -10,7 +10,8 @@ export * from './styles/tokens'
 export * from './theme'
 export * from './core'
 export * from './animation'
-export * from './@/hooks/use-media-query'
+export * from './@/hooks/use-media-query.ts'
+export * from './@/hooks/use-is-breakpoint.ts'
 
 export {
   Box,
@@ -37,6 +38,9 @@ export * from './components/atoms/Slider/Slider'
 export * from './components/atoms/Switch/Switch'
 export * from './components/atoms/ThemeSwitch/ThemeSwitch'
 export * from './components/molecules/FileUploader/FileUploader'
+export * from './components/molecules/FileUploader/FileUploaderSelectedFiles'
+export * from './components/molecules/AvatarUpload/AvatarUpload'
+export * from './components/organisms/SpreadsheetGrid/ExcelGrid'
 export * from './components/atoms/Rating/Rating'
 export * from './components/atoms/Divider/Divider'
 

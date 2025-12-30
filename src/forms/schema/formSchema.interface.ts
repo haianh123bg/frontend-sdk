@@ -19,8 +19,20 @@ export interface UiConfig {
   rows?: number
   file?: {
     multiple?: boolean
+    appendOnSelect?: boolean
     accept?: string
     maxSizeMb?: number
+    maxFiles?: number
+    mode?: 'dropzone' | 'button'
+    size?: 'sm' | 'md' | 'lg'
+    variant?: 'outline' | 'soft'
+    fileListLayout?: 'vertical' | 'horizontal' | 'wrap'
+    dropLabel?: string
+    browseLabel?: string
+    helperText?: string
+    showFileList?: boolean
+    allowRemove?: boolean
+    allowClear?: boolean
   }
   width?: ColumnSpan | ResponsiveWidth
   section?: string

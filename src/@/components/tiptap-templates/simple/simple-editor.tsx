@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import type { JSONContent } from "@tiptap/core"
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
 
 // --- Tiptap Core Extensions ---
@@ -74,6 +75,24 @@ import { handleImageUpload, MAX_FILE_SIZE } from "@/lib/tiptap-utils"
 import "@/components/tiptap-templates/simple/simple-editor.scss"
 
 import content from "@/components/tiptap-templates/simple/data/content.json"
+
+export type SimpleEditorContentType = "json" | "html"
+
+type SimpleEditorJsonProps = {
+  contentType?: "json"
+  applyValue?: JSONContent
+  applyValueKey?: string
+  onValueChange?: (value: JSONContent) => void
+}
+
+type SimpleEditorHtmlProps = {
+  contentType: "html"
+  applyValue?: string
+  applyValueKey?: string
+  onValueChange?: (value: string) => void
+}
+
+export type SimpleEditorProps = SimpleEditorJsonProps | SimpleEditorHtmlProps
 
 const MainToolbarContent = ({
   onHighlighterClick,
@@ -183,13 +202,21 @@ const MobileToolbarContent = ({
   </>
 )
 
-export function SimpleEditor() {
+export function SimpleEditor(props: SimpleEditorProps) {
+  const contentType: SimpleEditorContentType = props.contentType ?? "json"
+  const applyValue = props.applyValue
+  const applyValueKey = props.applyValueKey
   const isMobile = useIsBreakpoint()
   const { height } = useWindowSize()
   const [mobileView, setMobileView] = useState<"main" | "highlighter" | "link">(
     "main"
   )
   const toolbarRef = useRef<HTMLDivElement>(null)
+
+  const resolvedContent = useMemo(() => {
+    if (applyValue !== undefined) return applyValue
+    return content
+  }, [applyValue])
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -228,7 +255,15 @@ export function SimpleEditor() {
         onError: (error) => console.error("Upload failed:", error),
       }),
     ],
-    content,
+    content: resolvedContent as any,
+    onUpdate: ({ editor }) => {
+      if (!props.onValueChange) return
+      if (contentType === "html") {
+        ;(props as SimpleEditorHtmlProps).onValueChange?.(editor.getHTML())
+        return
+      }
+      ;(props as SimpleEditorJsonProps).onValueChange?.(editor.getJSON())
+    },
   })
 
   const rect = useCursorVisibility({
@@ -241,6 +276,13 @@ export function SimpleEditor() {
       setMobileView("main")
     }
   }, [isMobile, mobileView])
+
+  useEffect(() => {
+    if (!editor) return
+    if (applyValue === undefined) return
+
+    editor.commands.setContent(applyValue as any)
+  }, [editor, applyValueKey])
 
   return (
     <div className="simple-editor-wrapper">

@@ -953,13 +953,28 @@ function renderFieldControl(params: {
 
   if (widget.kind === 'file') {
     const multiple = fieldSchema.ui?.file?.multiple ?? false
+    const valueFiles = toFiles(field.value)
     return (
       <div className={disabled ? 'pointer-events-none opacity-60' : undefined}>
         <FileUploader
+          value={valueFiles}
           multiple={multiple}
+          appendOnSelect={fieldSchema.ui?.file?.appendOnSelect}
           accept={fieldSchema.ui?.file?.accept}
           maxSizeMb={fieldSchema.ui?.file?.maxSizeMb}
-          onFilesSelected={(files) => {
+          maxFiles={fieldSchema.ui?.file?.maxFiles}
+          mode={fieldSchema.ui?.file?.mode}
+          size={fieldSchema.ui?.file?.size}
+          variant={fieldSchema.ui?.file?.variant}
+          dropLabel={fieldSchema.ui?.file?.dropLabel}
+          browseLabel={fieldSchema.ui?.file?.browseLabel}
+          helperText={fieldSchema.ui?.file?.helperText}
+          showFileList={fieldSchema.ui?.file?.showFileList}
+          fileListLayout={fieldSchema.ui?.file?.fileListLayout}
+          allowRemove={fieldSchema.ui?.file?.allowRemove}
+          allowClear={fieldSchema.ui?.file?.allowClear}
+          disabled={disabled}
+          onValueChange={(files) => {
             field.onChange(multiple ? files : files[0])
             field.onBlur()
           }}

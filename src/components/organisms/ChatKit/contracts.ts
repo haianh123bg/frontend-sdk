@@ -41,6 +41,30 @@ export type ChatResponse = {
   }
 }
 
+export type StreamingEvent =
+  | {
+      type: 'typing'
+      conversationId: string
+      isTyping: boolean
+      text?: string
+    }
+  | {
+      type: 'message.delta'
+      conversationId: string
+      messageId?: string
+      text: string
+    }
+  | {
+      type: 'message.final'
+      conversationId: string
+      message: ChatMessage
+    }
+  | {
+      type: 'ui.patch'
+      conversationId: string
+      ui: UISchemaDocument | null
+    }
+
 export type SendMessageRequest = {
   conversationId: string
   clientId: string

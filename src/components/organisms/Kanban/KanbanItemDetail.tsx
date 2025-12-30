@@ -328,7 +328,7 @@ export const KanbanItemDetail: React.FC<KanbanItemDetailProps> = ({
                 contentType="json"
                 applyValue={getCanvasJson(item.data.canvas)}
                 applyValueKey={item.id}
-                onValueChange={(json) => handlePatch({ canvas: json })}
+                onValueChange={(json: JSONContent) => handlePatch({ canvas: json })}
               />
             </div>
           </>
