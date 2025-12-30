@@ -60,6 +60,8 @@ const normalizeRange = (range: ExcelGridRange) => {
   return { top, bottom, left, right }
 }
 
+const mod = (n: number, m: number) => ((n % m) + m) % m
+
 const parseClipboardGrid = (text: string) => {
   const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
   const rows = normalized.split('\n')
@@ -123,9 +125,13 @@ export function ExcelGrid({
   const [editingCell, setEditingCell] = React.useState<ExcelGridCellAddress | null>(null)
   const [editingValue, setEditingValue] = React.useState('')
 
-  const [isDraggingSelection, setIsDraggingSelection] = React.useState(false)
+  const [dragMode, setDragMode] = React.useState<'select' | 'fill' | 'col' | 'row' | null>(null)
   const dragPointerRef = React.useRef<{ x: number; y: number } | null>(null)
+  const dragHeaderAnchorRef = React.useRef<number | null>(null)
   const autoScrollRafRef = React.useRef<number | null>(null)
+
+  const [fillPreview, setFillPreview] = React.useState<{ top: number; bottom: number; left: number; right: number } | null>(null)
+  const fillPreviewRef = React.useRef<{ top: number; bottom: number; left: number; right: number } | null>(null)
 
   const rootRef = React.useRef<HTMLDivElement | null>(null)
   const scrollRef = React.useRef<HTMLDivElement | null>(null)
@@ -254,8 +260,67 @@ export function ExcelGrid({
 
   const selectionNorm = React.useMemo(() => (selection ? normalizeRange(selection) : null), [selection])
 
+  const computeFillPreview = React.useCallback(
+    (target: ExcelGridCellAddress) => {
+      if (!selectionNorm) return null
+      const top = Math.min(selectionNorm.top, target.row)
+      const bottom = Math.max(selectionNorm.bottom, target.row)
+      const left = Math.min(selectionNorm.left, target.col)
+      const right = Math.max(selectionNorm.right, target.col)
+      const same =
+        top === selectionNorm.top &&
+        bottom === selectionNorm.bottom &&
+        left === selectionNorm.left &&
+        right === selectionNorm.right
+      return same ? null : { top, bottom, left, right }
+    },
+    [selectionNorm]
+  )
+
+  const applyFill = React.useCallback(
+    (rect: { top: number; bottom: number; left: number; right: number }) => {
+      if (!selectionNorm) return
+
+      expandToInclude(rect.bottom, rect.right)
+
+      const srcTop = selectionNorm.top
+      const srcBottom = selectionNorm.bottom
+      const srcLeft = selectionNorm.left
+      const srcRight = selectionNorm.right
+      const srcH = srcBottom - srcTop + 1
+      const srcW = srcRight - srcLeft + 1
+
+      setNextCells((prev) => {
+        const next: ExcelGridCells = { ...prev }
+
+        for (let r = rect.top; r <= rect.bottom; r += 1) {
+          for (let c = rect.left; c <= rect.right; c += 1) {
+            const inSrc = r >= srcTop && r <= srcBottom && c >= srcLeft && c <= srcRight
+            if (inSrc) continue
+
+            const sr = srcTop + mod(r - srcTop, srcH)
+            const sc = srcLeft + mod(c - srcLeft, srcW)
+            const v = prev[cellKey(sr, sc)]
+            const k = cellKey(r, c)
+
+            if (v === null || v === undefined) {
+              delete next[k]
+            } else {
+              next[k] = v
+            }
+          }
+        }
+
+        return next
+      })
+
+      setSelection({ start: { row: rect.top, col: rect.left }, end: { row: rect.bottom, col: rect.right } })
+    },
+    [expandToInclude, selectionNorm, setNextCells]
+  )
+
   React.useEffect(() => {
-    if (!isDraggingSelection) return
+    if (!dragMode) return
     if (typeof document === 'undefined') return
 
     const getCellFromPoint = (x: number, y: number) => {
@@ -271,7 +336,7 @@ export function ExcelGrid({
     }
 
     const tickAutoScroll = () => {
-      if (!isDraggingSelection) return
+      if (!dragMode) return
       const el = scrollRef.current
       const p = dragPointerRef.current
       if (!el || !p) return
@@ -304,11 +369,50 @@ export function ExcelGrid({
     const onMove = (ev: MouseEvent) => {
       dragPointerRef.current = { x: ev.clientX, y: ev.clientY }
       const cell = getCellFromPoint(ev.clientX, ev.clientY)
-      if (cell) updateActiveCell(cell, { extendSelection: true })
+      if (!cell) return
+
+      if (dragMode === 'select') {
+        updateActiveCell(cell, { extendSelection: true })
+        return
+      }
+
+      if (dragMode === 'fill') {
+        const preview = computeFillPreview(cell)
+        fillPreviewRef.current = preview
+        setFillPreview(preview)
+        return
+      }
+
+      if (dragMode === 'col') {
+        const anchor = dragHeaderAnchorRef.current
+        if (anchor == null) return
+        const start = Math.min(anchor, cell.col)
+        const end = Math.max(anchor, cell.col)
+        setActiveCell({ row: 0, col: cell.col })
+        setSelection({ start: { row: 0, col: start }, end: { row: rowCount - 1, col: end } })
+        return
+      }
+
+      if (dragMode === 'row') {
+        const anchor = dragHeaderAnchorRef.current
+        if (anchor == null) return
+        const start = Math.min(anchor, cell.row)
+        const end = Math.max(anchor, cell.row)
+        setActiveCell({ row: cell.row, col: 0 })
+        setSelection({ start: { row: start, col: 0 }, end: { row: end, col: colCount - 1 } })
+      }
     }
 
     const onUp = () => {
-      setIsDraggingSelection(false)
+      if (dragMode === 'fill') {
+        const rect = fillPreviewRef.current
+        if (rect) applyFill(rect)
+      }
+
+      setDragMode(null)
+      dragHeaderAnchorRef.current = null
+      fillPreviewRef.current = null
+      setFillPreview(null)
     }
 
     document.addEventListener('mousemove', onMove)
@@ -323,7 +427,7 @@ export function ExcelGrid({
         autoScrollRafRef.current = null
       }
     }
-  }, [isDraggingSelection, updateActiveCell])
+  }, [applyFill, colCount, computeFillPreview, dragMode, rowCount, updateActiveCell])
 
   const handleScroll = () => {
     const el = scrollRef.current
@@ -535,9 +639,15 @@ export function ExcelGrid({
                       style={{ left: vcol.start, width: vcol.size }}
                       onMouseDown={(ev) => {
                         ev.preventDefault()
-                        const next = { row: activeCell?.row ?? 0, col: vcol.index }
-                        updateActiveCell(next, { extendSelection: ev.shiftKey })
+                        rootRef.current?.focus()
+
+                        dragPointerRef.current = { x: ev.clientX, y: ev.clientY }
+                        dragHeaderAnchorRef.current = vcol.index
+                        setActiveCell({ row: 0, col: vcol.index })
+                        setSelection({ start: { row: 0, col: vcol.index }, end: { row: rowCount - 1, col: vcol.index } })
+                        setDragMode('col')
                       }}
+                      data-excel-grid-col-header={vcol.index}
                     >
                       {indexToColumnLetter(vcol.index)}
                     </div>
@@ -571,9 +681,15 @@ export function ExcelGrid({
                       style={{ top: vrow.start, height: vrow.size, width: rowNumberWidth }}
                       onMouseDown={(ev) => {
                         ev.preventDefault()
-                        const next = { row: vrow.index, col: activeCell?.col ?? 0 }
-                        updateActiveCell(next, { extendSelection: ev.shiftKey })
+                        rootRef.current?.focus()
+
+                        dragPointerRef.current = { x: ev.clientX, y: ev.clientY }
+                        dragHeaderAnchorRef.current = vrow.index
+                        setActiveCell({ row: vrow.index, col: 0 })
+                        setSelection({ start: { row: vrow.index, col: 0 }, end: { row: vrow.index, col: colCount - 1 } })
+                        setDragMode('row')
                       }}
+                      data-excel-grid-row-header={vrow.index}
                     >
                       {vrow.index + 1}
                     </div>
@@ -604,6 +720,40 @@ export function ExcelGrid({
                   }}
                 />
               )}
+
+              {selectionNorm && fillPreview && (
+                <div
+                  className="pointer-events-none absolute z-10 border-2 border-dashed border-primary-500 bg-primary-50/5"
+                  style={{
+                    top: fillPreview.top * rowHeight,
+                    left: fillPreview.left * colWidth,
+                    width: (fillPreview.right - fillPreview.left + 1) * colWidth,
+                    height: (fillPreview.bottom - fillPreview.top + 1) * rowHeight,
+                  }}
+                />
+              )}
+
+              {selectionNorm && (
+                <div
+                  className="absolute z-20 h-2 w-2 cursor-crosshair border border-white bg-primary-500"
+                  style={{
+                    top: (selectionNorm.bottom + 1) * rowHeight - 5,
+                    left: (selectionNorm.right + 1) * colWidth - 5,
+                  }}
+                  onMouseDown={(ev) => {
+                    if (editingCell) return
+                    ev.preventDefault()
+                    ev.stopPropagation()
+                    rootRef.current?.focus()
+
+                    dragPointerRef.current = { x: ev.clientX, y: ev.clientY }
+                    fillPreviewRef.current = null
+                    setFillPreview(null)
+                    setDragMode('fill')
+                  }}
+                />
+              )}
+
               {virtualRows.flatMap((vrow) => {
                 return virtualCols.map((vcol) => {
                   const r = vrow.index
@@ -659,7 +809,7 @@ export function ExcelGrid({
 
                         dragPointerRef.current = { x: ev.clientX, y: ev.clientY }
                         updateActiveCell({ row: r, col: c }, { extendSelection: ev.shiftKey })
-                        setIsDraggingSelection(true)
+                        setDragMode('select')
                       }}
                       onDoubleClick={() => beginEdit({ row: r, col: c })}
                     >
