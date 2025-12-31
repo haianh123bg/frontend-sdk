@@ -54,7 +54,7 @@ export type UISchemaDocument = {
   "nodes": [ ... ],
   "meta": {
     "schemaId": "ui_01H...",
-    "registryHints": ["extended", "fintech"],
+    "registryHints": ["sdk", "extended"],
     "allowedActions": ["chatkit.txn.open", "chatkit.bank.statement"],
     "traceId": "...",
     "updatedAt": "2025-12-31T00:00:00Z"
@@ -158,7 +158,7 @@ Frontend SDK đang expect:
 ```tsx
 <SchemaRenderer
   nodes={ui.nodes}
-  registry={mergeComponentRegistry(defaultComponentRegistry, extendedComponentRegistry, fintechComponentRegistry)}
+  registry={mergeComponentRegistry(defaultComponentRegistry, sdkComponentRegistry, extendedComponentRegistry)}
   conversationId={conversationId}
   onAction={emitAction}
 />
@@ -167,7 +167,7 @@ Frontend SDK đang expect:
 ### 8.2 Lazy-load registry presets (tăng hiệu năng)
 
 Cơ chế khuyến nghị:
-- Backend set `ui.meta.registryHints` (vd `["extended", "fintech"]`).
+- Backend set `ui.meta.registryHints` (vd `["sdk", "extended"]`).
 - Frontend dùng hints để `import()` preset registry.
 
 Pseudo-code:
@@ -175,8 +175,8 @@ Pseudo-code:
 ```ts
 async function loadRegistries(hints: string[]) {
   const regs = []
+  if (hints.includes('sdk')) regs.push((await import('@/.../ChatKit/registries')).sdkComponentRegistry)
   if (hints.includes('extended')) regs.push((await import('@/.../ChatKit/registries')).extendedComponentRegistry)
-  if (hints.includes('fintech')) regs.push((await import('@/.../ChatKit/registries')).fintechComponentRegistry)
   return mergeComponentRegistry(defaultComponentRegistry, ...regs)
 }
 ```
@@ -250,4 +250,164 @@ Ghi chú:
 - [ ] API: `GET /conversations/:id/ui`.
 - [ ] Chuẩn hoá `meta.registryHints`, `meta.schemaId`.
 - [ ] Logging/trace: propagate `traceId` để debug.
+
+## 13) Triển khai backend lưu UISchemaDocument vào DB (chi tiết)
+
+Mục tiêu của phần này là mô tả đủ chi tiết để đội backend có thể implement nhanh trong NestJS.
+
+### 13.1 Kiến trúc lưu trữ: snapshot + latest pointer
+
+Khuyến nghị lưu theo mô hình:
+
+- **`ui_schema_snapshots`**: append-only (audit/replay)
+- **`ui_schema_latest`**: pointer tới snapshot mới nhất (để `GET latest` nhanh)
+
+Tại sao cần `latest`:
+
+- Tránh query sort/limit trên bảng snapshot khi traffic lớn
+- Cho phép index tối ưu theo `conversation_id`
+
+### 13.2 Postgres DDL (tham chiếu)
+
+```sql
+-- conversations: tuỳ hệ thống, có thể đã tồn tại
+create table if not exists conversations (
+  id text primary key,
+  user_id text not null,
+  status text not null default 'IDLE',
+  meta jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- ui_schema_snapshots: lưu nguyên UISchemaDocument
+create table if not exists ui_schema_snapshots (
+  id text primary key,
+  conversation_id text not null references conversations(id) on delete cascade,
+  schema_version int not null,
+  schema jsonb not null,
+  schema_hash text not null,
+  created_at timestamptz not null default now(),
+  created_by text not null default 'system',
+  trace_id text null
+);
+
+create index if not exists idx_ui_schema_snapshots_conversation_created_at
+  on ui_schema_snapshots (conversation_id, created_at desc);
+
+create index if not exists idx_ui_schema_snapshots_hash
+  on ui_schema_snapshots (schema_hash);
+
+-- latest pointer
+create table if not exists ui_schema_latest (
+  conversation_id text primary key references conversations(id) on delete cascade,
+  snapshot_id text not null references ui_schema_snapshots(id) on delete restrict,
+  updated_at timestamptz not null default now()
+);
+```
+
+Ghi chú:
+
+- `id` nên là **ULID** (để sort theo thời gian, log-friendly).
+- `schema_hash` dùng để dedupe và kiểm soát “schema spam”.
+
+### 13.3 Quy ước hash/dedupe
+
+Khuyến nghị:
+
+- Trước khi hash, backend **normalize JSON** (ví dụ stringify ổn định theo key order) để tránh hash khác nhau do thứ tự key.
+- Hash bằng `sha256`.
+- Nếu snapshot mới có `schema_hash` trùng snapshot latest hiện tại -> có thể **skip insert** (tuỳ policy).
+
+### 13.4 Flow persist khi trả `ChatResponse.ui`
+
+Pseudo-flow:
+
+1. Backend tạo `UISchemaDocument` (hoặc nhận từ orchestrator/AI).
+2. Validate schema + whitelist.
+3. Persist snapshot:
+   - insert `ui_schema_snapshots`
+   - upsert `ui_schema_latest`
+4. Trả `ChatResponse` chứa `ui` (Mode A) hoặc trả `ui.meta.schemaId` (Mode B).
+
+### 13.5 Flow resume UI
+
+Endpoint khuyến nghị:
+
+- `GET /conversations/:id/ui`
+
+Logic:
+
+- AuthZ: user phải có quyền đọc conversation.
+- Lấy `snapshot_id` từ `ui_schema_latest`.
+- Trả `schema` từ `ui_schema_snapshots`.
+
+### 13.6 Flow audit/replay
+
+- `GET /conversations/:id/ui/snapshots?limit=50&before=...`
+
+Trả danh sách snapshot (id + created_at + created_by + trace_id + schema_hash) và tuỳ nhu cầu có thể trả kèm `schema`.
+
+### 13.7 Validation & security (bắt buộc)
+
+Backend cần validate trước khi lưu và trước khi trả về frontend:
+
+- **Validate shape**:
+  - `type` là string non-empty
+  - `props` là object hoặc undefined
+  - `children` là array hoặc undefined
+- **Whitelist component types** theo app/tenant:
+  - Ví dụ `['card','row','col','text','button','input','select','file_uploader', ...]`
+- **Action whitelist**:
+  - Nếu node có `props.action.type` thì phải nằm trong whitelist/permission của conversation
+- **Payload sanitization**:
+  - Không cho schema nhúng function
+  - Không cho schema nhúng object nhạy cảm (vd `File`)
+
+### 13.8 Blueprint NestJS (module/service/controller)
+
+Gợi ý cấu trúc:
+
+```text
+backend/
+  src/
+    ui-schema/
+      ui-schema.module.ts
+      ui-schema.controller.ts
+      ui-schema.service.ts
+      ui-schema.validator.ts
+      ui-schema.repository.ts
+```
+
+Các hàm service tối thiểu:
+
+- `persistSnapshot(conversationId, schemaDoc, meta)` -> snapshotId
+- `getLatest(conversationId)` -> `UISchemaDocument | null`
+- `listSnapshots(conversationId, limit, before?)` -> list
+
+### 13.9 Gợi ý response format cho API `GET /conversations/:id/ui`
+
+```json
+{
+  "conversationId": "conv_123",
+  "snapshotId": "ui_01H...",
+  "schema": { "version": 1, "nodes": [], "meta": {} }
+}
+```
+
+## 14) Lưu ý đặc biệt: các component có dữ liệu không-JSON (FileUploader/AvatarUpload)
+
+- Không lưu `File` vào schema.
+- Khi user chọn file ở frontend, node sẽ emit action chứa **file metadata**.
+- Backend nên triển khai flow upload riêng (presigned URL / multipart) và chỉ lưu **URL + metadata** vào state/schema.
+
+## 15) Checklist triển khai (backend) - bản mở rộng
+
+- [ ] DDL + migration cho `ui_schema_snapshots`, `ui_schema_latest`.
+- [ ] Service persist snapshot (transaction + upsert latest).
+- [ ] Hash/dedupe policy.
+- [ ] Validator: shape + whitelist type + whitelist action.
+- [ ] API `GET /conversations/:id/ui`.
+- [ ] API `GET /conversations/:id/ui/snapshots`.
+- [ ] Observability: trace_id, metrics (snapshot size, snapshot rate).
 

@@ -9,6 +9,23 @@ export type UISchemaDocument = {
   meta?: Record<string, any>
 }
 
+export type ChatKitState = Record<string, any>
+
+export type JsonPatchOperation = {
+  op: 'add' | 'remove' | 'replace' | 'move' | 'copy' | 'test'
+  path: string
+  value?: any
+  from?: string
+}
+
+export type ChatKitActivity = {
+  id: string
+  activityType: string
+  content: Record<string, any>
+  createdAt?: string | number
+  updatedAt?: string | number
+}
+
 export type ChatKitActionEvent = {
   type: string
   conversationId: string
@@ -36,6 +53,8 @@ export type ChatResponse = {
   conversationId: string
   messages: ChatMessage[]
   ui?: UISchemaDocument
+  state?: ChatKitState
+  activities?: ChatKitActivity[]
   meta?: {
     traceId?: string
   }
@@ -63,6 +82,28 @@ export type StreamingEvent =
       type: 'ui.patch'
       conversationId: string
       ui: UISchemaDocument | null
+    }
+  | {
+      type: 'state.snapshot'
+      conversationId: string
+      snapshot: ChatKitState
+    }
+  | {
+      type: 'state.delta'
+      conversationId: string
+      delta: JsonPatchOperation[]
+    }
+  | {
+      type: 'activity.snapshot'
+      conversationId: string
+      activity: ChatKitActivity
+      replace?: boolean
+    }
+  | {
+      type: 'activity.delta'
+      conversationId: string
+      activityId: string
+      patch: JsonPatchOperation[]
     }
 
 export type SendMessageRequest = {

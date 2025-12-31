@@ -1,23 +1,23 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import * as React from 'react'
-import { ChatPanel } from '../Chat/ChatPanel'
 import type { ChatAgentInfo, ChatMessage } from '../Chat/types'
+import { ChatKitBoxChat } from './ChatKitBoxChat'
 import type { ChatKitActivity, ChatKitState, ChatResponse } from './contracts'
+import { mergeComponentRegistry } from './registry'
+import { extendedComponentRegistry } from './registries/extended'
+import { sdkComponentRegistry } from './registries/sdk'
 import type { UIComponent } from './types'
 import type { ChatStreamEvent, ChatStreamHandlers, ChatTransport, LoadOlderResult } from './transport'
-import { ActivityRenderer } from './ActivityRenderer'
-import { BoundSchemaRenderer } from './BoundSchemaRenderer'
-import { extendedComponentRegistry } from './registries'
-import { ChatRuntimeProvider, useChatRuntime } from './runtime'
 
-const meta: Meta = {
-  title: 'Organisms/ChatKit/ChatRuntime',
+const meta: Meta<typeof ChatKitBoxChat> = {
+  title: 'Organisms/ChatKit/ChatKitBoxChat',
+  component: ChatKitBoxChat,
   parameters: { layout: 'fullscreen' },
 }
 
 export default meta
 
-type Story = StoryObj
+type Story = StoryObj<typeof ChatKitBoxChat>
 
 const conversationId = 'conv_001'
 const currentUserId = 'user_001'
@@ -39,9 +39,9 @@ function createMockTransport(): ChatTransport {
   const widgetNodes: UIComponent[] = [
     {
       type: 'card',
-      props: { title: 'Gợi ý hành động', subtitle: 'Chọn 1 hành động để tiếp tục', padding: 'md', className: 'w-full' },
+      props: { title: 'Tổng quan', subtitle: 'UI schema + state bindings', padding: 'md', className: 'w-full' },
       children: [
-        { type: 'text', props: { value: 'Bạn muốn mình làm gì tiếp theo?' } },
+        { type: 'text', props: { value: 'Thanh tiến trình bên dưới lấy dữ liệu từ state (/demo/progress).' } },
         {
           type: 'progress',
           props: {
@@ -58,15 +58,11 @@ function createMockTransport(): ChatTransport {
           children: [
             {
               type: 'button',
-              props: { variant: 'secondary', label: 'Bỏ qua', action: { type: 'chatkit.skip' } },
+              props: { variant: 'secondary', label: 'Reset', action: { type: 'chatkit.reset_demo' } },
             },
             {
               type: 'button',
-              props: {
-                variant: 'primary',
-                label: 'Tạo task',
-                action: { type: 'chatkit.create_task', payload: { priority: 'high' } },
-              },
+              props: { variant: 'primary', label: 'Tạo task', action: { type: 'chatkit.create_task', payload: { priority: 'high' } } },
             },
           ],
         },
@@ -103,20 +99,14 @@ function createMockTransport(): ChatTransport {
 
   const simulateStream = async (prompt: string) => {
     const messageId = `stream_${Date.now()}`
-    const parts = [
-      'Đang xử lý yêu cầu của bạn',
-      prompt ? `: ${prompt.trim()}` : '',
-      '.\n\n',
-      'Đây là nội dung trả lời được stream theo từng đoạn.',
-    ]
-    const full = parts.join('')
+    const parts = ['Đang xử lý yêu cầu', prompt ? `: ${prompt.trim()}` : '', '.']
 
     publish({ type: 'typing', conversationId, isTyping: true, text: 'RedAI đang nhập…' })
-    await delay(250)
+    await delay(200)
 
     for (const chunk of parts) {
       publish({ type: 'message.delta', conversationId, messageId, text: chunk })
-      await delay(140)
+      await delay(120)
     }
 
     const finalMsg: ChatMessage = {
@@ -126,13 +116,13 @@ function createMockTransport(): ChatTransport {
       senderName: 'RedAI',
       direction: 'incoming',
       createdAt: Date.now(),
-      content: { type: 'text', text: full },
+      content: { type: 'text', text: parts.join('') },
     }
 
     publish({ type: 'message.final', conversationId, message: finalMsg })
     publish({ type: 'typing', conversationId, isTyping: false })
-    publish({ type: 'ui.patch', conversationId, ui: { version: 1, nodes: widgetNodes } })
 
+    publish({ type: 'ui.patch', conversationId, ui: { version: 1, nodes: widgetNodes } })
     publish({ type: 'state.snapshot', conversationId, snapshot: initialState })
     publish({ type: 'activity.snapshot', conversationId, activity: initialActivities[0] })
 
@@ -162,7 +152,7 @@ function createMockTransport(): ChatTransport {
       }
     },
     sendMessage: async (input) => {
-      await delay(450)
+      await delay(350)
 
       seq += 1
       const outgoing: ChatMessage = {
@@ -180,6 +170,7 @@ function createMockTransport(): ChatTransport {
       const res: ChatResponse = {
         conversationId: input.conversationId,
         messages: [outgoing],
+        ui: { version: 1, nodes: widgetNodes },
         state: initialState,
         activities: initialActivities,
         meta: { traceId: `trace_${Date.now()}` },
@@ -191,7 +182,7 @@ function createMockTransport(): ChatTransport {
     },
 
     sendAction: async (event) => {
-      await delay(300)
+      await delay(250)
 
       const sys: ChatMessage = {
         id: `m_sys_${Date.now()}`,
@@ -202,11 +193,16 @@ function createMockTransport(): ChatTransport {
         content: { type: 'system', text: `Action received: ${event.type}` },
       }
 
+      if (event.type === 'chatkit.reset_demo') {
+        publish({ type: 'state.snapshot', conversationId, snapshot: initialState })
+      }
+
       void simulateStream(`action=${event.type}`)
 
       return {
         conversationId: event.conversationId,
         messages: [sys],
+        ui: { version: 1, nodes: widgetNodes },
         state: initialState,
         activities: initialActivities,
         meta: { traceId: `trace_${Date.now()}` },
@@ -214,7 +210,7 @@ function createMockTransport(): ChatTransport {
     },
 
     loadOlder: async (_params): Promise<LoadOlderResult> => {
-      await delay(350)
+      await delay(250)
 
       const older: ChatMessage[] = [
         {
@@ -232,64 +228,13 @@ function createMockTransport(): ChatTransport {
   }
 }
 
-const RuntimeChatPanel: React.FC<{ agent: ChatAgentInfo }> = ({ agent }) => {
-  const rt = useChatRuntime()
-
-  return (
-    <div className="flex h-[720px] gap-4">
-      <div className="min-w-0 flex-1">
-        <ChatPanel
-          agent={agent}
-          conversationId={rt.conversationId}
-          currentUserId={currentUserId}
-          messages={rt.messages}
-          widgets={rt.widgets}
-          widgetRegistry={extendedComponentRegistry}
-          agentThinking={rt.agentThinking}
-          typingText={rt.typingText}
-          onSend={rt.sendMessage}
-          onWidgetAction={(e) => void rt.emitAction(e)}
-          onLoadOlder={() => void rt.loadOlder()}
-          hasMoreOlder={rt.hasMoreOlder}
-          isLoadingOlder={rt.isLoadingOlder}
-          showSenderName
-          showOutgoingAvatar
-          className="h-full"
-        />
-      </div>
-
-      <div className="w-[360px] shrink-0">
-        <div className="rounded-xl border border-slate-200 bg-surface p-3">
-          <div className="text-sm font-semibold">Widgets (Bound)</div>
-          <div className="mt-3">
-            <BoundSchemaRenderer
-              nodes={rt.widgets}
-              conversationId={rt.conversationId}
-              onAction={(e) => void rt.emitAction(e)}
-              state={rt.state}
-              className="gap-2"
-            />
-          </div>
-        </div>
-
-        <div className="mt-3 rounded-xl border border-slate-200 bg-surface p-3">
-          <div className="text-sm font-semibold">Activities</div>
-          <div className="mt-3">
-            <ActivityRenderer
-              activities={rt.activities}
-              conversationId={rt.conversationId}
-              onAction={(e) => void rt.emitAction(e)}
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-export const Basic: Story = {
+export const SplitMode: Story = {
   render: () => {
+    const [open, setOpen] = React.useState(true)
+
     const transport = React.useMemo(() => createMockTransport(), [])
+
+    const widgetRegistry = React.useMemo(() => mergeComponentRegistry(sdkComponentRegistry, extendedComponentRegistry), [])
 
     const initialMessages = React.useMemo<ChatMessage[]>(
       () => [
@@ -314,30 +259,38 @@ export const Basic: Story = {
       []
     )
 
-    const initialWidgets = React.useMemo<UIComponent[]>(
-      () => [
-        {
-          type: 'card',
-          props: { title: 'Widget demo', subtitle: 'Render từ schema', padding: 'md', className: 'w-full' },
-          children: [{ type: 'text', props: { value: 'Bạn có thể bấm nút bên dưới để emit action.' } }],
-        },
-      ],
-      []
-    )
-
     return (
-      <div className="h-screen w-full bg-surface p-4">
-        <div className="mx-auto h-full max-w-[920px]">
-          <ChatRuntimeProvider
+      <div className="h-screen w-full bg-slate-50 p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <button
+            type="button"
+            className="rounded-lg bg-primary-500 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-600"
+            onClick={() => setOpen((v) => !v)}
+          >
+            {open ? 'Đóng chat' : 'Mở chat'}
+          </button>
+          <div className="text-sm text-text-muted">ViewPanel (trái) render UI gen + activities từ ChatRuntimeProvider.</div>
+        </div>
+
+        <div className="h-[calc(100vh-6rem)] min-h-0">
+          <ChatKitBoxChat
+            mode="split"
+            open={open}
+            title="RedAI Assistant"
+            chatSide="right"
+            chatRatio={0.34}
+            minChat={320}
+            minView={320}
+            agent={agent}
             conversationId={conversationId}
-            transport={transport}
             currentUserId={currentUserId}
             currentUserName="Bạn"
+            allowAttachments={false}
+            transport={transport}
             initialMessages={initialMessages}
-            initialWidgets={initialWidgets}
-          >
-            <RuntimeChatPanel agent={agent} />
-          </ChatRuntimeProvider>
+            viewTitle="Generated UI"
+            viewWidgetRegistry={widgetRegistry}
+          />
         </div>
       </div>
     )

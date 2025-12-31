@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { createOptimisticOutgoingMessage, type AgentThinkingState, type ChatMessage, type SendMessageInput } from '../Chat/types'
-import type { ChatKitActionEvent } from './contracts'
+import type { ChatKitActionEvent, ChatKitActivity, ChatKitState } from './contracts'
+import { applyJsonPatch } from './jsonPatch'
 import type { UIComponent } from './types'
 import type { ChatStreamEvent, ChatTransport, LoadOlderResult, Unsubscribe } from './transport'
 
@@ -10,6 +11,8 @@ export type ChatRuntimeState = {
   conversationId: string
   messages: ChatMessage[]
   widgets: UIComponent[]
+  state?: ChatKitState
+  activities: ChatKitActivity[]
   status: ChatRuntimeStatus
   agentThinking?: AgentThinkingState | null
   typingText?: string
@@ -25,6 +28,8 @@ export type ChatRuntimeActions = {
   loadOlder: (params?: { beforeId?: string; limit?: number }) => Promise<void>
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>
   setWidgets: React.Dispatch<React.SetStateAction<UIComponent[]>>
+  setState: React.Dispatch<React.SetStateAction<ChatKitState | undefined>>
+  setActivities: React.Dispatch<React.SetStateAction<ChatKitActivity[]>>
 }
 
 export type ChatRuntimeApi = ChatRuntimeState & ChatRuntimeActions
@@ -55,6 +60,45 @@ function mergeMessages(prev: ChatMessage[], incoming: ChatMessage[]): ChatMessag
   return all
 }
 
+function mergeActivities(prev: ChatKitActivity[], incoming: ChatKitActivity[]): ChatKitActivity[] {
+  if (!incoming.length) return prev
+  const map = new Map<string, ChatKitActivity>()
+  for (const a of prev) map.set(a.id, a)
+  for (const a of incoming) {
+    const old = map.get(a.id)
+    map.set(a.id, old ? { ...old, ...a } : a)
+  }
+  const all = Array.from(map.values())
+  all.sort((a, b) => toMs(a.updatedAt ?? a.createdAt ?? 0) - toMs(b.updatedAt ?? b.createdAt ?? 0))
+  return all
+}
+
+function upsertActivity(prev: ChatKitActivity[], activity: ChatKitActivity, replace: boolean | undefined): ChatKitActivity[] {
+  const idx = prev.findIndex((a) => a.id === activity.id)
+  if (idx < 0) return mergeActivities(prev, [activity])
+
+  const base = prev[idx]
+  const nextActivity: ChatKitActivity =
+    replace === false
+      ? {
+          ...base,
+          ...activity,
+          content: {
+            ...(base.content ?? {}),
+            ...(activity.content ?? {}),
+          },
+        }
+      : {
+          ...base,
+          ...activity,
+        }
+
+  const next = [...prev]
+  next[idx] = nextActivity
+  next.sort((a, b) => toMs(a.updatedAt ?? a.createdAt ?? 0) - toMs(b.updatedAt ?? b.createdAt ?? 0))
+  return next
+}
+
 const ChatRuntimeContext = React.createContext<ChatRuntimeApi | null>(null)
 
 export interface ChatRuntimeProviderProps {
@@ -65,6 +109,8 @@ export interface ChatRuntimeProviderProps {
   currentUserAvatarUrl?: string
   initialMessages?: ChatMessage[]
   initialWidgets?: UIComponent[]
+  initialState?: ChatKitState
+  initialActivities?: ChatKitActivity[]
   enableOptimistic?: boolean
   children: React.ReactNode
 }
@@ -77,11 +123,15 @@ export const ChatRuntimeProvider: React.FC<ChatRuntimeProviderProps> = ({
   currentUserAvatarUrl,
   initialMessages,
   initialWidgets,
+  initialState,
+  initialActivities,
   enableOptimistic = true,
   children,
 }) => {
   const [messages, setMessages] = React.useState<ChatMessage[]>(initialMessages ?? [])
   const [widgets, setWidgets] = React.useState<UIComponent[]>(initialWidgets ?? [])
+  const [state, setState] = React.useState<ChatKitState | undefined>(initialState)
+  const [activities, setActivities] = React.useState<ChatKitActivity[]>(initialActivities ?? [])
   const [status, setStatus] = React.useState<ChatRuntimeStatus>('idle')
   const [agentThinking, setAgentThinking] = React.useState<AgentThinkingState | null>(null)
   const [typingText, setTypingText] = React.useState<string | undefined>(undefined)
@@ -95,6 +145,8 @@ export const ChatRuntimeProvider: React.FC<ChatRuntimeProviderProps> = ({
   React.useEffect(() => {
     setMessages(initialMessages ?? [])
     setWidgets(initialWidgets ?? [])
+    setState(initialState)
+    setActivities(initialActivities ?? [])
     setStatus('idle')
     setAgentThinking(null)
     setTypingText(undefined)
@@ -103,7 +155,7 @@ export const ChatRuntimeProvider: React.FC<ChatRuntimeProviderProps> = ({
     setHasMoreOlder(undefined)
     setIsLoadingOlder(undefined)
     streamRef.current = null
-  }, [conversationId, initialMessages, initialWidgets])
+  }, [conversationId, initialActivities, initialMessages, initialState, initialWidgets])
 
   React.useEffect(() => {
     if (!transport.subscribe) return
@@ -143,6 +195,46 @@ export const ChatRuntimeProvider: React.FC<ChatRuntimeProviderProps> = ({
 
       if (event.type === 'ui.patch') {
         setWidgets(event.ui?.nodes ?? [])
+        return
+      }
+
+      if (event.type === 'state.snapshot') {
+        setState(event.snapshot)
+        return
+      }
+
+      if (event.type === 'state.delta') {
+        setState((prev) => {
+          try {
+            return applyJsonPatch(prev ?? ({} as ChatKitState), event.delta)
+          } catch (e) {
+            setError(e)
+            return prev
+          }
+        })
+        return
+      }
+
+      if (event.type === 'activity.snapshot') {
+        setActivities((prev) => upsertActivity(prev, event.activity, event.replace))
+        return
+      }
+
+      if (event.type === 'activity.delta') {
+        setActivities((prev) => {
+          const idx = prev.findIndex((a) => a.id === event.activityId)
+          if (idx < 0) return prev
+          const base = prev[idx]
+          try {
+            const patchedContent = applyJsonPatch(base.content ?? {}, event.patch)
+            const next = [...prev]
+            next[idx] = { ...base, content: patchedContent, updatedAt: Date.now() }
+            return next
+          } catch (e) {
+            setError(e)
+            return prev
+          }
+        })
         return
       }
     }
@@ -193,6 +285,8 @@ export const ChatRuntimeProvider: React.FC<ChatRuntimeProviderProps> = ({
         const res = await transport.sendMessage(input)
         setMessages((prev) => mergeMessages(prev, res.messages ?? []))
         setWidgets((prev) => res.ui?.nodes ?? prev)
+        setState((prev) => res.state ?? prev)
+        setActivities((prev) => (Array.isArray(res.activities) ? res.activities : prev))
         setTraceId((prev) => res.meta?.traceId ?? prev)
         setStatus('idle')
         const hasIncoming = (res.messages ?? []).some((m) => m.direction !== 'outgoing')
@@ -222,6 +316,8 @@ export const ChatRuntimeProvider: React.FC<ChatRuntimeProviderProps> = ({
         const res = await transport.sendAction(event)
         setMessages((prev) => mergeMessages(prev, res.messages ?? []))
         setWidgets((prev) => res.ui?.nodes ?? prev)
+        setState((prev) => res.state ?? prev)
+        setActivities((prev) => (Array.isArray(res.activities) ? res.activities : prev))
         setTraceId((prev) => res.meta?.traceId ?? prev)
         setStatus('idle')
         const hasIncoming = (res.messages ?? []).some((m) => m.direction !== 'outgoing')
@@ -276,6 +372,8 @@ export const ChatRuntimeProvider: React.FC<ChatRuntimeProviderProps> = ({
       conversationId,
       messages,
       widgets,
+      state,
+      activities,
       status,
       agentThinking,
       typingText,
@@ -288,9 +386,12 @@ export const ChatRuntimeProvider: React.FC<ChatRuntimeProviderProps> = ({
       loadOlder,
       setMessages,
       setWidgets,
+      setState,
+      setActivities,
     }),
     [
       agentThinking,
+      activities,
       conversationId,
       emitAction,
       error,
@@ -300,6 +401,7 @@ export const ChatRuntimeProvider: React.FC<ChatRuntimeProviderProps> = ({
       messages,
       sendMessage,
       status,
+      state,
       traceId,
       typingText,
       widgets,
