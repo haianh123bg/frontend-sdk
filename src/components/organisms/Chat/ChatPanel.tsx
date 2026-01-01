@@ -1,14 +1,12 @@
 import * as React from 'react'
 import { twMerge } from 'tailwind-merge'
-import { PhoneOff, Mic, MicOff, Volume2, VolumeX, List, ListTodo, SquarePen } from 'lucide-react'
+import { List, ListTodo, SquarePen } from 'lucide-react'
 import { ChatHeader, type ChatHeaderProps } from './ChatHeader'
 import { ChatInput, type ChatInputProps } from './ChatInput'
 import { MessageList, type MessageListProps } from './MessageList'
-import { Avatar } from '../../atoms/Avatar/Avatar'
 import { Button } from '../../atoms/Button/Button'
-import { IconButton } from '../../atoms/IconButton/IconButton'
-import { Caption, Text } from '../../atoms/TypographyPrimitives'
 import { Modal } from '../../molecules/Modal/Modal'
+import { CallInProgressCard } from './CallInProgressCard'
 import { createOptimisticOutgoingMessage, type AgentThinkingState, type ChatAgentInfo, type ChatMessage, type SendMessageInput } from './types'
 import { SchemaRenderer, type ComponentRegistry, type ChatKitActionEvent, type UIComponent } from '../ChatKit'
 
@@ -103,8 +101,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const [headerModal, setHeaderModal] = React.useState<null | 'call' | 'conversations' | 'tasks' | 'create'>(null)
   const [callConnected, setCallConnected] = React.useState(false)
-  const [callMuted, setCallMuted] = React.useState(false)
-  const [callSpeaker, setCallSpeaker] = React.useState(false)
   const [callTick, setCallTick] = React.useState(0)
   const callStartedAtRef = React.useRef<number | null>(null)
 
@@ -140,8 +136,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     if (headerModal !== 'call') return
 
     setCallConnected(false)
-    setCallMuted(false)
-    setCallSpeaker(false)
     setCallTick(0)
     callStartedAtRef.current = null
 
@@ -352,6 +346,14 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         onClose={onClose}
       />
 
+      {headerModal === 'call' && (
+        <CallInProgressCard
+          agent={agent}
+          callDurationLabel={callDurationLabel}
+          onEndCall={() => setHeaderModal(null)}
+        />
+      )}
+
       <MessageList
         messages={combinedMessages}
         agentThinking={agentThinking}
@@ -424,62 +426,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           >
             Xóa
           </Button>
-        </div>
-      </Modal>
-
-      <Modal
-        open={headerModal === 'call'}
-        onClose={() => setHeaderModal(null)}
-        size="sm"
-        title={undefined}
-        className="p-0 overflow-hidden"
-      >
-        <div className="flex flex-col">
-          <div className="bg-slate-950 px-6 py-6 text-white">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-3">
-                <Avatar src={agent.logoUrl} alt={agent.name} initials={agent.name} size="md" />
-                <div className="min-w-0">
-                  <Text className="truncate text-base font-semibold text-white">{agent.name}</Text>
-                  <Caption className="text-white/70">{callDurationLabel}</Caption>
-                </div>
-              </div>
-              <button
-                type="button"
-                className="rounded-full px-3 py-1 text-xs text-white/80 hover:bg-white/10"
-                onClick={() => setHeaderModal(null)}
-              >
-                Đóng
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-center gap-4 bg-surface px-6 py-8">
-            <IconButton
-              icon={callMuted ? MicOff : Mic}
-              size="md"
-              variant="muted"
-              aria-label="Mute"
-              className={callMuted ? 'bg-slate-100' : undefined}
-              onClick={() => setCallMuted((v) => !v)}
-            />
-            <IconButton
-              icon={callSpeaker ? Volume2 : VolumeX}
-              size="md"
-              variant="muted"
-              aria-label="Loa"
-              className={callSpeaker ? 'bg-slate-100' : undefined}
-              onClick={() => setCallSpeaker((v) => !v)}
-            />
-            <button
-              type="button"
-              className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600"
-              aria-label="Kết thúc"
-              onClick={() => setHeaderModal(null)}
-            >
-              <PhoneOff size={20} />
-            </button>
-          </div>
         </div>
       </Modal>
 

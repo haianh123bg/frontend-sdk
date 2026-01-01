@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(npm whoami:*)",
-      "Bash(npm login)"
+      "Bash(npm login)",
+      "Bash(mkdir:*)"
     ]
   }
 }
