@@ -48,13 +48,11 @@ type InnerProps = {
     | 'renderWidgetsInChat'
     | 'view'
     | 'viewTitle'
-    | 'activityRegistry'
     | 'viewWidgetRegistry'
   >
   renderWidgetsInChatResolved: boolean
   viewOverride?: React.ReactNode
   viewTitle?: React.ReactNode
-  activityRegistry?: ActivityRegistry
   viewWidgetRegistry?: ComponentRegistry
 }
 
@@ -63,7 +61,6 @@ const ChatKitBoxChatInner: React.FC<InnerProps> = ({
   renderWidgetsInChatResolved,
   viewOverride,
   viewTitle,
-  activityRegistry,
   viewWidgetRegistry,
 }) => {
   const rt = useChatRuntime()
@@ -77,13 +74,11 @@ const ChatKitBoxChatInner: React.FC<InnerProps> = ({
         widgets={rt.widgets}
         state={rt.state}
         widgetRegistry={viewWidgetRegistry}
-        activities={rt.activities}
-        activityRegistry={activityRegistry}
         conversationId={rt.conversationId}
         onAction={(e) => void rt.emitAction(e)}
       />
     )
-  }, [activityRegistry, rt, viewOverride, viewTitle, viewWidgetRegistry])
+  }, [rt, viewOverride, viewTitle, viewWidgetRegistry])
 
   return (
     <BoxChat
@@ -115,7 +110,7 @@ export const ChatKitBoxChat: React.FC<ChatKitBoxChatProps> = ({
   renderWidgetsInChat,
   view,
   viewTitle,
-  activityRegistry,
+  activityRegistry: _activityRegistry,
   viewWidgetRegistry,
   mode = 'floating',
   open,
@@ -144,7 +139,6 @@ export const ChatKitBoxChat: React.FC<ChatKitBoxChatProps> = ({
         renderWidgetsInChatResolved={renderWidgetsInChatResolved}
         viewOverride={view}
         viewTitle={viewTitle}
-        activityRegistry={activityRegistry}
         viewWidgetRegistry={viewWidgetRegistry ?? rest.widgetRegistry}
       />
     </ChatRuntimeProvider>
