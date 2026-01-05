@@ -16,6 +16,9 @@ import { SwitchNode } from './sdk/SwitchNode'
 import { ThemeSwitchNode } from './sdk/ThemeSwitchNode'
 import { TextareaNode } from './sdk/TextareaNode'
 import { TiptapEditorNode } from './sdk/TiptapEditorNode'
+import { FormFieldNode } from './sdk/FormFieldNode'
+import { GridNode } from './sdk/GridNode'
+import { FormNode } from './sdk/FormNode'
 
 export const sdkComponentRegistry: ComponentRegistry = {
   input: InputNode,
@@ -36,4 +39,7 @@ export const sdkComponentRegistry: ComponentRegistry = {
   avatar_upload: AvatarUploadNode,
   tiptap_editor: TiptapEditorNode,
   excel_grid: ExcelGridNode,
+  form_field: FormFieldNode,
+  grid: GridNode,
+  form: FormNode,
 }

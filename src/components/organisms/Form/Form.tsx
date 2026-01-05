@@ -17,7 +17,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import type { ZodSchema } from 'zod'
 
 export interface FormProps<TFieldValues extends FieldValues = FieldValues>
-  extends Omit<React.FormHTMLAttributes<HTMLFormElement>, 'onSubmit' | 'onInvalid'> {
+  extends Omit<React.FormHTMLAttributes<HTMLFormElement>, 'onSubmit' | 'onInvalid'>,
+  UseFormProps<TFieldValues> {
   methods?: UseFormReturn<TFieldValues>
   onSubmit?: SubmitHandler<TFieldValues>
   onInvalid?: SubmitErrorHandler<TFieldValues>
@@ -39,7 +40,31 @@ type FormComponent = <TFieldValues extends FieldValues = FieldValues>(
 ) => JSX.Element
 
 function InternalForm<TFieldValues extends FieldValues = FieldValues>(
-  { children, methods, onSubmit, onInvalid, options, className, schema, formRef, formId, instanceId, ...props }: FormProps<TFieldValues>,
+  {
+    children,
+    methods,
+    onSubmit,
+    onInvalid,
+    options,
+    className,
+    schema,
+    formRef,
+    formId,
+    instanceId,
+    defaultValues,
+    values,
+    mode,
+    reValidateMode,
+    resolver,
+    context,
+    criteriaMode,
+    shouldFocusError,
+    shouldUnregister,
+    shouldUseNativeValidation,
+    delayError,
+    resetOptions,
+    ...props
+  }: FormProps<TFieldValues>,
   ref: React.Ref<HTMLFormElement>
 ) {
   const dispatch = useDispatchAction()
@@ -48,12 +73,31 @@ function InternalForm<TFieldValues extends FieldValues = FieldValues>(
     autoInstanceIdRef.current = generateId()
   }
   const effectiveInstanceId = instanceId ?? autoInstanceIdRef.current
+
+  const useFormOptions: UseFormProps<TFieldValues> = {
+    defaultValues,
+    values,
+    mode,
+    reValidateMode,
+    resolver,
+    context,
+    criteriaMode,
+    shouldFocusError,
+    shouldUnregister,
+    shouldUseNativeValidation,
+    delayError,
+    resetOptions,
+    ...(options || {}),
+  }
+
+  // Pre-calculate resolver if schema is provided
+  if (schema && !useFormOptions.resolver) {
+    useFormOptions.resolver = zodResolver(schema)
+  }
+
   const formMethods =
     methods ??
-    useForm<TFieldValues>({
-      ...(options || {}),
-      resolver: schema ? zodResolver(schema) : options?.resolver,
-    })
+    useForm<TFieldValues>(useFormOptions)
 
   const internalFormRef = React.useRef<HTMLFormElement | null>(null)
 
@@ -129,6 +173,6 @@ function InternalForm<TFieldValues extends FieldValues = FieldValues>(
 }
 
 const ForwardForm = React.forwardRef(InternalForm) as FormComponent
-;(ForwardForm as React.ForwardRefExoticComponent<FormProps<any> & React.RefAttributes<HTMLFormElement>>).displayName = 'Form'
+  ; (ForwardForm as React.ForwardRefExoticComponent<FormProps<any> & React.RefAttributes<HTMLFormElement>>).displayName = 'Form'
 
 export { ForwardForm as Form }

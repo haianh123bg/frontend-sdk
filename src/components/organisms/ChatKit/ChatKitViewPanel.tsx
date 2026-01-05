@@ -31,7 +31,6 @@ export const ChatKitViewPanel: React.FC<ChatKitViewPanelProps> = ({
 
   return (
     <div className={twMerge('flex h-full w-full flex-col overflow-hidden rounded-2xl bg-surface shadow-sm', className)}>
-      <div className="border-b border-slate-200/70 px-4 py-2 text-sm font-semibold">{title}</div>
       <div className={twMerge('flex-1 overflow-auto p-4', contentClassName)}>
         {hasWidgets && (
           <BoundSchemaRenderer

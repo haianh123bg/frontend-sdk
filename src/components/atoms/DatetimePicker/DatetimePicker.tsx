@@ -101,6 +101,8 @@ export const DatetimePicker = React.forwardRef<HTMLInputElement, DatetimePickerP
       hourLabel = 'Giờ',
       minuteLabel = 'Phút',
       onChange,
+      // @ts-ignore - prevent type override
+      type: _type,
       ...restProps
     },
     ref

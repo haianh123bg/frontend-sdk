@@ -2,15 +2,21 @@ import * as React from 'react'
 import { DatePicker } from '../../../../atoms/DatePicker/DatePicker'
 import type { ChatKitNodeAction, SchemaComponentProps } from '../../types'
 import { resolveActionEvent } from '../shared/resolveActionEvent'
+import { useFormContext, Controller } from 'react-hook-form'
 
 export const DatePickerNode: React.FC<SchemaComponentProps> = ({ node, onAction, conversationId, path }) => {
-  const { action, onValueChange, ...rest } = (node.props ?? {}) as Record<string, any>
+  const { action, onValueChange, name, ...rest } = (node.props ?? {}) as Record<string, any>
   const resolvedAction = resolveActionEvent(action as ChatKitNodeAction | undefined, conversationId)
 
-  return (
+  const methods = useFormContext()
+
+  const renderPicker = (fieldProps: any = {}) => (
     <DatePicker
       {...rest}
+      {...fieldProps}
       onValueChange={(value) => {
+        fieldProps.onChange?.(value)
+
         if (resolvedAction && onAction) {
           onAction({
             ...resolvedAction,
@@ -21,4 +27,16 @@ export const DatePickerNode: React.FC<SchemaComponentProps> = ({ node, onAction,
       }}
     />
   )
+
+  if (methods && name) {
+    return (
+      <Controller
+        name={name}
+        control={methods.control}
+        render={({ field: { ref, ...field } }) => renderPicker(field)}
+      />
+    )
+  }
+
+  return renderPicker()
 }

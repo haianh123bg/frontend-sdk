@@ -455,8 +455,8 @@ export const DatePicker = React.forwardRef<HTMLInputElement, DatePickerProps>(
               {viewMode === 'day' && (
                 <>
                   <div className="grid grid-cols-7 justify-items-center">
-                    {weekdayLabels.map((d) => (
-                      <div key={d} className="h-8 w-8 flex items-center justify-center text-xs font-semibold text-text-muted">
+                    {weekdayLabels.map((d, i) => (
+                      <div key={i} className="h-8 w-8 flex items-center justify-center text-xs font-semibold text-text-muted">
                         {d}
                       </div>
                     ))}

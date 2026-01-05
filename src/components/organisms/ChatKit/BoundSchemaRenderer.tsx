@@ -6,6 +6,11 @@ import { SchemaRenderer, type SchemaRendererProps } from './SchemaRenderer'
 
 function resolveNode(node: UIComponent, state: ChatKitState | undefined): UIComponent {
   const resolvedProps = resolveBindings(node.props ?? undefined, state)
+
+  if (node.type === 'form') {
+    console.log('[BoundSchemaRenderer] Resolved Form Props:', resolvedProps)
+  }
+
   let resolvedChildren: UIComponent[] | undefined = undefined
 
   if (Array.isArray(node.children)) {
