@@ -6,7 +6,9 @@ export * from './components/organisms/DashboardLayout/DashboardLayout'
 export * from './bus/actionBus'
 export * from './bus/hooks'
 export * from './events/types'
-export * from './styles/tokens'
+export * from './styles/tokens' // Utils
+export * as Utils from './utils'
+export * from './utils'
 export * from './theme'
 export * from './core'
 export * from './animation'
@@ -118,7 +120,8 @@ export * from './components/organisms/Table/TableToolbar'
 export * from './components/organisms/Table/ActiveFilters'
 export * from './components/organisms/Table/TableFilterToolbar'
 
-export * from './components/organisms/SpreadsheetGrid/SpreadsheetGrid'
+// Canvas Grid Component
+export * from './components/organisms/CanvasGrid'
 
 // Kanban Module
 export * from './kanban'

@@ -38,6 +38,8 @@ export interface ExcelGridProps
   editable?: boolean
   enableCopyPaste?: boolean
   enableFormulas?: boolean
+  initialColWidths?: Record<number, number>
+  onColWidthChange?: (widths: Record<number, number>) => void
 }
 
 const cellKey = (row: number, col: number) => `${row}:${col}`
@@ -107,6 +109,8 @@ export function ExcelGrid({
   editable = true,
   enableCopyPaste = true,
   enableFormulas = false,
+  initialColWidths,
+  onColWidthChange,
   ...props
 }: ExcelGridProps) {
   const isControlled = value !== undefined
@@ -115,6 +119,7 @@ export function ExcelGrid({
 
   const [rowCount, setRowCount] = React.useState(() => Math.min(Math.max(1, initialRowCount), maxRow))
   const [colCount, setColCount] = React.useState(() => Math.min(Math.max(1, initialColCount), maxCol))
+  const [colWidths, setColWidths] = React.useState<Record<number, number>>(initialColWidths ?? {})
 
   const [activeCell, setActiveCell] = React.useState<ExcelGridCellAddress | null>({ row: 0, col: 0 })
   const [selectionAnchor, setSelectionAnchor] = React.useState<ExcelGridCellAddress | null>({ row: 0, col: 0 })
@@ -129,6 +134,12 @@ export function ExcelGrid({
   const dragPointerRef = React.useRef<{ x: number; y: number } | null>(null)
   const dragHeaderAnchorRef = React.useRef<number | null>(null)
   const autoScrollRafRef = React.useRef<number | null>(null)
+
+  const [resizingCol, setResizingCol] = React.useState<{ index: number; startX: number; startWidth: number } | null>(
+    null
+  )
+
+  const [hoveredResizeCol, setHoveredResizeCol] = React.useState<number | null>(null)
 
   const [fillPreview, setFillPreview] = React.useState<{ top: number; bottom: number; left: number; right: number } | null>(null)
   const fillPreviewRef = React.useRef<{ top: number; bottom: number; left: number; right: number } | null>(null)
@@ -234,6 +245,28 @@ export function ExcelGrid({
     return () => window.clearTimeout(id)
   }, [editingCell])
 
+  React.useEffect(() => {
+    if (!resizingCol) return
+    const onMove = (e: MouseEvent) => {
+      const delta = e.clientX - resizingCol.startX
+      const newWidth = Math.max(40, resizingCol.startWidth + delta)
+      setColWidths((prev) => {
+        const next = { ...prev, [resizingCol.index]: newWidth }
+        return next
+      })
+    }
+    const onUp = () => {
+      setResizingCol(null)
+      onColWidthChange?.(colWidths)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+    return () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+  }, [colWidths, onColWidthChange, resizingCol])
+
   const rowVirtualizer = useVirtualizer({
     count: rowCount,
     getScrollElement: () => scrollRef.current,
@@ -245,7 +278,7 @@ export function ExcelGrid({
     horizontal: true,
     count: colCount,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => colWidth,
+    estimateSize: (index) => colWidths[index] ?? colWidth,
     overscan: 8,
   })
 
@@ -595,7 +628,7 @@ export function ExcelGrid({
   return (
     <div
       ref={rootRef}
-      className={twMerge(clsx('w-full rounded-2xl bg-surface', className))}
+      className={twMerge(clsx('w-full rounded-2xl bg-surface outline-none', className))}
       tabIndex={0}
       onKeyDown={handleKeyDown}
       onCopy={handleCopy}
@@ -612,47 +645,81 @@ export function ExcelGrid({
         onScroll={handleScroll}
       >
         <div className="relative" style={{ width: canvasWidth, height: canvasHeight }}>
-          {showRowNumbers && showColumnLetters && (
-            <div
-              className="sticky left-0 top-0 z-40 border-b border-r border-slate-200 bg-surface"
-              style={{ width: rowNumberWidth, height: headerHeight }}
-            />
-          )}
-
           {showColumnLetters && (
             <div
-              className="sticky top-0 z-30 border-b border-slate-200 bg-surface"
-              style={{ height: headerHeight, marginLeft: showRowNumbers ? rowNumberWidth : 0, width: totalColsSize }}
+              className="sticky top-0 z-30 flex bg-surface"
+              style={{ width: canvasWidth, height: headerHeight }}
             >
-              <div className="relative" style={{ height: headerHeight, width: totalColsSize }}>
-                {virtualCols.map((vcol) => {
-                  const isActiveCol = activeCell?.col === vcol.index
-                  return (
-                    <div
-                      key={vcol.key}
-                      className={twMerge(
-                        clsx(
-                          'absolute top-0 flex h-full items-center justify-center border-r border-slate-200 text-xs font-semibold text-text-secondary',
-                          isActiveCol && 'bg-primary-50'
-                        )
-                      )}
-                      style={{ left: vcol.start, width: vcol.size }}
-                      onMouseDown={(ev) => {
-                        ev.preventDefault()
-                        rootRef.current?.focus()
+              {showRowNumbers && (
+                <div
+                  className="sticky left-0 top-0 z-40 shrink-0 border-b border-r border-slate-200 bg-surface"
+                  style={{ width: rowNumberWidth, height: headerHeight }}
+                />
+              )}
+              <div
+                className="relative border-b border-slate-200 bg-surface"
+                style={{ width: totalColsSize, height: headerHeight }}
+              >
+                <div className="relative" style={{ height: headerHeight, width: totalColsSize }}>
+                  {virtualCols.map((vcol) => {
+                    const isActiveCol = activeCell?.col === vcol.index
+                    const isHoveredResize = hoveredResizeCol === vcol.index
+                    return (
+                      <div
+                        key={vcol.key}
+                        className={twMerge(
+                          clsx(
+                            'group absolute top-0 flex h-full items-center justify-center border-r border-slate-200 text-xs font-semibold text-text-secondary',
+                            isActiveCol && 'bg-primary-50'
+                          )
+                        )}
+                        style={{ left: vcol.start, width: vcol.size }}
+                        onMouseDown={(ev) => {
+                          ev.preventDefault()
+                          rootRef.current?.focus()
 
-                        dragPointerRef.current = { x: ev.clientX, y: ev.clientY }
-                        dragHeaderAnchorRef.current = vcol.index
-                        setActiveCell({ row: 0, col: vcol.index })
-                        setSelection({ start: { row: 0, col: vcol.index }, end: { row: rowCount - 1, col: vcol.index } })
-                        setDragMode('col')
-                      }}
-                      data-excel-grid-col-header={vcol.index}
-                    >
-                      {indexToColumnLetter(vcol.index)}
-                    </div>
-                  )
-                })}
+                          dragPointerRef.current = { x: ev.clientX, y: ev.clientY }
+                          dragHeaderAnchorRef.current = vcol.index
+                          setActiveCell({ row: 0, col: vcol.index })
+                          setSelection({
+                            start: { row: 0, col: vcol.index },
+                            end: { row: rowCount - 1, col: vcol.index },
+                          })
+                          setDragMode('col')
+                        }}
+                        data-excel-grid-col-header={vcol.index}
+                      >
+                        {indexToColumnLetter(vcol.index)}
+                        <div
+                          className={twMerge(
+                            clsx(
+                              'absolute right-0 top-0 h-full w-3 cursor-col-resize opacity-0 group-hover:opacity-100',
+                              isHoveredResize && 'bg-primary-100/60 opacity-100'
+                            )
+                          )}
+                          style={{
+                            right: -6,
+                            zIndex: 10,
+                          }}
+                          onMouseDown={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            setResizingCol({
+                              index: vcol.index,
+                              startX: e.clientX,
+                              startWidth: vcol.size,
+                            })
+                          }}
+                          onMouseEnter={() => setHoveredResizeCol(vcol.index)}
+                          onMouseLeave={() => setHoveredResizeCol(null)}
+                        />
+                        {isHoveredResize && (
+                          <div className="pointer-events-none absolute right-0 top-0 h-[200vh] w-px bg-primary-400" style={{ right: 0 }} />
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             </div>
           )}
@@ -661,7 +728,6 @@ export function ExcelGrid({
             <div
               className="sticky left-0 z-20 border-r border-slate-200 bg-surface"
               style={{
-                marginTop: showColumnLetters ? headerHeight : 0,
                 width: rowNumberWidth,
                 height: totalRowsSize,
               }}
@@ -686,7 +752,10 @@ export function ExcelGrid({
                         dragPointerRef.current = { x: ev.clientX, y: ev.clientY }
                         dragHeaderAnchorRef.current = vrow.index
                         setActiveCell({ row: vrow.index, col: 0 })
-                        setSelection({ start: { row: vrow.index, col: 0 }, end: { row: vrow.index, col: colCount - 1 } })
+                        setSelection({
+                          start: { row: vrow.index, col: 0 },
+                          end: { row: vrow.index, col: colCount - 1 },
+                        })
                         setDragMode('row')
                       }}
                       data-excel-grid-row-header={vrow.index}
@@ -767,11 +836,11 @@ export function ExcelGrid({
 
                   const computed = showFormulaValue
                     ? (() => {
-                        const v = formulaRuntime.evaluateCell(r, c)
-                        if (isFormulaError(v)) return v.code
-                        if (v === null) return ''
-                        return String(v)
-                      })()
+                      const v = formulaRuntime.evaluateCell(r, c)
+                      if (isFormulaError(v)) return v.code
+                      if (v === null) return ''
+                      return String(v)
+                    })()
                     : null
 
                   const inSelection =
