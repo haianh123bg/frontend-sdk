@@ -26,5 +26,11 @@
     "types": ["vite/client", "node", "react", "react-dom", "uuid"]
   },
   "include": ["src"],
+  "exclude": [
+    "src/**/*.stories.tsx",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/__tests__/**"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

@@ -3,7 +3,7 @@
  * Supports loading custom components from CDN/Backend
  */
 
-import type { ComponentRegistry } from '../../ChatKit/types'
+import type { ComponentRegistry } from '../ChatKit/types'
 
 /**
  * Định nghĩa component từ CDN/Backend

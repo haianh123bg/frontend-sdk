@@ -1,3 +1,5 @@
+import './styles/base.css'
+
 export * from './components/atoms/Button/Button'
 export * from './components/atoms/Input/Input'
 export * from './components/atoms/ColorPicker/ColorPicker'
@@ -12,8 +14,8 @@ export * from './utils'
 export * from './theme'
 export * from './core'
 export * from './animation'
-export * from './@/hooks/use-media-query.ts'
-export * from './@/hooks/use-is-breakpoint.ts'
+export * from './@/hooks/use-media-query'
+export * from './@/hooks/use-is-breakpoint'
 
 export {
   Box,
@@ -139,3 +141,6 @@ export * from './components/organisms/Chat/ChatPanel'
 export * from './components/organisms/Chat/BoxChat'
 
 export * from './components/organisms/ChatKit'
+
+// New Grid View Migration
+export * from './views/grid'

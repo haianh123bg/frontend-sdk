@@ -5,12 +5,11 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import type {
-  ColumnType,
   Row,
   CellRange,
   CanvasGridProps,
-  NavigateDir,
 } from '../types'
+import { NavigateDir } from '../types'
 import {
   COLUMN_HEADER_HEIGHT_IN_PX,
   ROW_HEIGHT_IN_PX,
@@ -20,7 +19,6 @@ import {
 } from '../utils/constants'
 import {
   getCellAtPosition,
-  getCellDisplayValue,
   isColumnEditable,
   debounce,
   throttle,
@@ -29,7 +27,6 @@ import {
 export function useCanvasGrid(props: CanvasGridProps) {
   const {
     meta,
-    view,
     data,
     totalRows,
     loadData,
@@ -37,8 +34,6 @@ export function useCanvasGrid(props: CanvasGridProps) {
     deleteRow,
     addEmptyRow,
     expandForm,
-    bulkUpdateRows,
-    deleteSelectedRows,
     rowHeightEnum = 1,
     readOnly = false,
   } = props
@@ -68,13 +63,12 @@ export function useCanvasGrid(props: CanvasGridProps) {
   const [editingCell, setEditingCell] = useState<{ rowIndex: number; colIndex: number; value: any } | null>(null)
 
   // Dragging State
-  const [isDragging, setIsDragging] = useState(false)
-  const [dragType, setDragType] = useState<'column' | 'row' | 'fill' | null>(null)
-  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null)
+  const [isDragging] = useState(false)
+  const [dragStart] = useState<{ x: number; y: number } | null>(null)
 
   // Loading State
   const [isLoading, setIsLoading] = useState(false)
-  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [isLoadingMore] = useState(false)
 
   // Computed Values
   const columns = useMemo(() => {
@@ -406,7 +400,6 @@ export function useCanvasGrid(props: CanvasGridProps) {
     selectedRange,
     editingCell,
     isDragging,
-    dragType,
     isLoading,
     isLoadingMore,
 
